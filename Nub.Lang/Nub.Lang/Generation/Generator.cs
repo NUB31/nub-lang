@@ -66,6 +66,26 @@ public class Generator
             _builder.AppendLine();
             GenerateFuncDefinition(funcDefinition);
         }
+
+        _builder.AppendLine("""
+                            
+                            ; https://tuttlem.github.io/2013/01/08/strlen-implementation-in-nasm.html
+                            strlen:
+                                push rcx            ; save and clear out counter
+                                xor rcx, rcx
+                            .strlen_next:
+                                cmp [rdi], byte 0   ; null byte yet?
+                                jz .strlen_null     ; yes, get out
+                                inc rcx             ; char is ok, count it
+                                inc rdi             ; move to next char
+                                jmp .strlen_next    ; process again
+                            .strlen_null:
+                                mov rax, rcx        ; rcx = the length (put in rax)
+                                pop rcx             ; restore rcx
+                                ret                 ; get out
+                            """);
+        
+        
         _builder.AppendLine();
         _builder.AppendLine("section .data");
         foreach (var str in _strings)
@@ -147,6 +167,9 @@ public class Generator
                 break;
             case LiteralNode literal:
                 GenerateLiteral(literal, func);
+                break;
+            case StrlenNode strlen:
+                GenerateStrlen(strlen, func);
                 break;
             case SyscallExpressionNode syscallExpression:
                 throw new NotImplementedException();
@@ -230,6 +253,13 @@ public class Generator
             default:
                 throw new ArgumentOutOfRangeException();
         }
+    }
+
+    private void GenerateStrlen(StrlenNode strlen, Func func)
+    {
+        GenerateExpression(strlen.String, func);
+        _builder.AppendLine("    mov rdi, rax");
+        _builder.AppendLine("    call strlen");
     }
 
     // TODO: Use stack for more than 6 parameters

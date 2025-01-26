@@ -56,7 +56,7 @@ public enum PrimitiveTypeKind
 
 public record StringType : Type
 {
-    public override string ToString() => "string";
+    public override string ToString() => "String";
 }
 
 public record DelegateType : Type

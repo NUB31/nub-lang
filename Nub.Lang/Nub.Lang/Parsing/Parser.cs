@@ -144,7 +144,12 @@ public class Parser
             {
                 return new SyscallExpressionNode(new Syscall(parameters));
             }
-            
+
+            if (identifier.Value == "strlen" && parameters.Count == 1)
+            {
+                return new StrlenNode(parameters[0]);
+            }
+
             return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
         }
         
@@ -184,7 +189,7 @@ public class Parser
             return new DelegateType(typeArguments.Take(typeArguments.Count - 1).ToList(), returnType);
         }
 
-        if (name == "pointer")
+        if (name == "String")
         {
             return new StringType();
         }

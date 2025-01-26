@@ -104,6 +104,9 @@ public class ExpressionTyper
             case LiteralNode literal:
                 PopulateLiteral(literal);
                 break;
+            case StrlenNode strlen:
+                PopulateStrlen(strlen);
+                break;
             case SyscallExpressionNode syscall:
                 PopulateSyscallExpression(syscall);
                 break;
@@ -144,6 +147,11 @@ public class ExpressionTyper
     private static void PopulateLiteral(LiteralNode literal)
     {
         literal.Type = literal.LiteralType;
+    }
+
+    private static void PopulateStrlen(StrlenNode strlen)
+    {
+        strlen.Type = new PrimitiveType(PrimitiveTypeKind.Int64);
     }
 
     private void PopulateSyscallExpression(SyscallExpressionNode syscall)

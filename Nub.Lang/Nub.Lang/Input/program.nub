@@ -7,6 +7,6 @@ func main() {
     write("test\n");
 }
 
-func write(msg: pointer) {
-    syscall(SYS_WRITE, STD_OUT, msg, 5);
+func write(msg: String) {
+    syscall(SYS_WRITE, STD_OUT, msg, strlen(msg));
 }
