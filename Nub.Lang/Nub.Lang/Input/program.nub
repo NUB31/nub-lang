@@ -7,6 +7,6 @@ func main() {
     write("test");
 }
 
-func write(msg: void) {
+func write(msg: Func) {
     syscall(SYS_WRITE, STD_OUT, msg);
 }

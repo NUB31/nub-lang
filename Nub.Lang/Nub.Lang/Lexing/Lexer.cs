@@ -24,6 +24,8 @@ public class Lexer
         [','] = Symbol.Comma,
         ['.'] = Symbol.Period,
         ['='] = Symbol.Assign,
+        ['<'] = Symbol.LessThan,
+        ['>'] = Symbol.GreaterThan,
     };
     
     private readonly string _src;
@@ -34,7 +36,7 @@ public class Lexer
         _src = src;
     }
     
-    public IEnumerable<Token> Lex()
+    public IReadOnlyCollection<Token> Lex()
     {
         _index = 0;
         List<Token> tokens = [];
@@ -79,7 +81,7 @@ public class Lexer
                 current = Peek();
             }
 
-            return new LiteralToken(Type.Int32, buffer);
+            return new LiteralToken(new PrimitiveType(PrimitiveTypeKind.Int64), buffer);
         }
 
         if (Chars.TryGetValue(current.Value, out var charSymbol))
@@ -102,7 +104,7 @@ public class Lexer
                 buffer += current.Value;
             }
             
-            return new LiteralToken(Type.Pointer, buffer);
+            return new LiteralToken(new PointerType(), buffer);
         }
 
         if (char.IsWhiteSpace(current.Value))

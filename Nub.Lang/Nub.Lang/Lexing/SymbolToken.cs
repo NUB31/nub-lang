@@ -19,6 +19,8 @@ public enum Symbol
     CloseBrace,
     OpenBracket,
     CloseBracket,
+    LessThan,
+    GreaterThan,
     Comma,
     Period,
     Assign

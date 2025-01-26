@@ -13,7 +13,7 @@ public class Parser
         _tokens = tokens.ToArray();
     }
 
-    public IEnumerable<DefinitionNode> Parse()
+    public IReadOnlyCollection<DefinitionNode> Parse()
     {
         _index = 0;
         List<DefinitionNode> definitions = [];
@@ -59,9 +59,15 @@ public class Parser
             }
         }
 
+        var returnType = Optional<Type>.Empty();
+        if (TryExpectSymbol(Symbol.Colon))
+        {
+            returnType = ParseType();
+        }
+
         var body = ParseBlock();
 
-        return new FuncDefinitionNode(name.Value, parameters, body);
+        return new FuncDefinitionNode(name.Value, parameters, body, returnType);
     }
 
     private FuncParameter ParseFuncParameter()
@@ -96,10 +102,10 @@ public class Parser
 
                         if (identifier.Value == "syscall")
                         {
-                            return new SyscallNode(parameters);
+                            return new SyscallStatementNode(new Syscall(parameters));
                         }
 
-                        return new FuncCallNode(identifier.Value, parameters);
+                        return  new FuncCallStatementNode(new FuncCall(identifier.Value, parameters));
                     }
                     case Symbol.Assign:
                         throw new NotImplementedException();
@@ -117,10 +123,32 @@ public class Parser
         var token = ExpectToken();
         return token switch
         {
-            LiteralToken literal => new LiteralNode(literal.Value),
-            IdentifierToken identifier => new IdentifierNode(identifier.Value),
+            LiteralToken literal => new LiteralNode(literal.Value, literal.Type),
+            IdentifierToken identifier => ParseExpressionIdentifier(identifier),
             _ => throw new Exception($"Unexpected token type {token.GetType().Name}")
         };
+    }
+
+    private ExpressionNode ParseExpressionIdentifier(IdentifierToken identifier)
+    {
+        if (TryExpectSymbol(Symbol.OpenParen))
+        {
+            List<ExpressionNode> parameters = [];
+            while (!TryExpectSymbol(Symbol.CloseParen))
+            {
+                parameters.Add(ParseExpression());
+                TryExpectSymbol(Symbol.Comma);
+            }
+            
+            if (identifier.Value == "syscall")
+            {
+                return new SyscallExpressionNode(new Syscall(parameters));
+            }
+            
+            return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
+        }
+        
+        return new IdentifierNode(identifier.Value);
     }
 
     private BlockNode ParseBlock()
@@ -137,8 +165,26 @@ public class Parser
 
     private Type ParseType()
     {
-        var name = ExpectIdentifier();
-        return new Type(name.Value);
+        var name = ExpectIdentifier().Value;
+        if (name == "Func")
+        {
+            List<Type> typeArguments = [];
+            if (TryExpectSymbol(Symbol.LessThan))
+            {
+                while (!TryExpectSymbol(Symbol.GreaterThan))
+                {
+                    var type = ParseType();
+                    typeArguments.Add(type);
+                    TryExpectSymbol(Symbol.Comma);
+                }
+            }
+
+            var returnType = Optional<Type>.OfNullable(typeArguments.LastOrDefault());
+
+            return new DelegateType(typeArguments.Take(typeArguments.Count - 1), returnType);
+        }
+
+        return PrimitiveType.Parse(name);
     }
 
     private Token ExpectToken()

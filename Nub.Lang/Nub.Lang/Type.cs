@@ -1,26 +1,56 @@
-﻿namespace Nub.Lang;
+﻿using Nub.Lib;
 
-public class Type(string name)
+namespace Nub.Lang;
+
+public abstract class Type;
+
+public class PrimitiveType(PrimitiveTypeKind kind) : Type
 {
-    public static Type Bool => new("bool");
-    public static Type Char => new("char");
+    public static PrimitiveType Parse(string value)
+    {
+        var kind = value switch
+        {
+            "bool" => PrimitiveTypeKind.Bool,
+            "char" => PrimitiveTypeKind.Char,
+            "int8" => PrimitiveTypeKind.Int8,
+            "uint8" => PrimitiveTypeKind.UInt8,
+            "int16" => PrimitiveTypeKind.Int16,
+            "uint16" => PrimitiveTypeKind.UInt16,
+            "int32" => PrimitiveTypeKind.Int32,
+            "uint32" => PrimitiveTypeKind.UInt32,
+            "int64" => PrimitiveTypeKind.Int64,
+            "uint64" => PrimitiveTypeKind.UInt64,
+            "float" => PrimitiveTypeKind.Float,
+            "double" => PrimitiveTypeKind.Double,
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
+        };
+        
+        return new PrimitiveType(kind);
+    }
     
-    public static Type Int8 => new("int8");
-    public static Type UInt8 => new("uint8");
-    
-    public static Type Int16 => new("int16");
-    public static Type UInt16 => new("uint16");
-    
-    public static Type Int32 => new("int32");
-    public static Type UInt32 => new("uint32");
-    
-    public static Type Int64 => new("int64");
-    public static Type UInt64 => new("uint64");
-    
-    public static Type Float => new("char");
-    public static Type Double => new("double");
-    
-    public static Type Pointer => new("pointer");
+    public PrimitiveTypeKind Kind { get; } = kind;
+}
 
-    public string Name = name;
+public enum PrimitiveTypeKind
+{
+    Bool,
+    Char,
+    Int8,
+    UInt8,
+    Int16,
+    UInt16,
+    Int32,
+    UInt32,
+    Int64,
+    UInt64,
+    Float,
+    Double,
+}
+
+public class PointerType : Type;
+
+public class DelegateType(IEnumerable<Type> parameters, Optional<Type> returnType) : Type
+{
+    public IEnumerable<Type> Parameters { get; } = parameters;
+    public Optional<Type> ReturnType { get; } = returnType;
 }

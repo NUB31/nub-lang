@@ -1,7 +1,9 @@
 ﻿namespace Nub.Lang.Parsing;
 
-public class FuncCallNode(string name, IEnumerable<ExpressionNode> parameters) : StatementNode
+public class FuncCall(string name, IEnumerable<ExpressionNode> parameters)
 {
     public string Name { get; } = name;
     public IEnumerable<ExpressionNode> Parameters { get; } = parameters;
+
+    public override string ToString() => $"{Name}()";
 }

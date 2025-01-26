@@ -1,6 +1,6 @@
 ﻿namespace Nub.Lang.Parsing;
 
-public class SyscallNode(IEnumerable<ExpressionNode> parameters) : StatementNode
+public class Syscall(IEnumerable<ExpressionNode> parameters)
 {
     public IEnumerable<ExpressionNode> Parameters { get; } = parameters;
 }
