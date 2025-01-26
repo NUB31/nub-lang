@@ -53,7 +53,7 @@ public class Generator
 
         _builder.AppendLine();
         _builder.AppendLine($"    ; Call entrypoint {Entrypoint}");
-        _builder.AppendLine($"    call {main.Label}");
+        _builder.AppendLine($"    call {main.StartLabel}");
 
         _builder.AppendLine();
         _builder.AppendLine("    ; Exit with status code 0");
@@ -96,20 +96,20 @@ public class Generator
         return _builder.ToString();
     }
 
-    private void GenerateFuncDefinition(FuncDefinitionNode funcDefinition)
+    private void GenerateFuncDefinition(FuncDefinitionNode node)
     {
-        var symbol = _symbolTable.ResolveFunc(funcDefinition.Name, funcDefinition.Parameters.Select(p => p.Type).ToList());
-        _builder.AppendLine($"; {funcDefinition.ToString()}");
-        _builder.AppendLine($"{symbol.Label}:");
+        var func = _symbolTable.ResolveFunc(node.Name, node.Parameters.Select(p => p.Type).ToList());
+        _builder.AppendLine($"; {node.ToString()}");
+        _builder.AppendLine($"{func.StartLabel}:");
         _builder.AppendLine("    push rbp");
         _builder.AppendLine("    mov rbp, rsp");
-        _builder.AppendLine($"    sub rsp, {symbol.StackAllocation}");
+        _builder.AppendLine($"    sub rsp, {func.StackAllocation}");
         
         string[] registers = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
         
-        for (var i = 0; i < symbol.Parameters.Count; i++)
+        for (var i = 0; i < func.Parameters.Count; i++)
         {
-            var parameter = symbol.ResolveLocalVariable(symbol.Parameters.ElementAt(i).Name);
+            var parameter = func.ResolveLocalVariable(func.Parameters.ElementAt(i).Name);
             if (i < registers.Length)
             {
                 _builder.AppendLine($"    mov [rbp - {parameter.Offset}], {registers[i]}");
@@ -122,7 +122,9 @@ public class Generator
             }
         }
         
-        GenerateBlock(funcDefinition.Body, symbol);
+        GenerateBlock(node.Body, func);
+
+        _builder.AppendLine($"{func.EndLabel}:");
         _builder.AppendLine("    mov rsp, rbp");
         _builder.AppendLine("    pop rbp");
         _builder.AppendLine("    ret");
@@ -143,6 +145,13 @@ public class Generator
             case FuncCallStatementNode funcCallStatement:
                 GenerateFuncCall(funcCallStatement.FuncCall, func);
                 break;
+            case ReturnNode @return:
+                if (@return.Value.HasValue)
+                {
+                    GenerateExpression(@return.Value.Value, func);
+                }
+                _builder.AppendLine($"    jmp {func.EndLabel}");
+                break;
             case SyscallStatementNode syscallStatement:
                 GenerateSyscall(syscallStatement.Syscall, func);
                 break;
@@ -159,7 +168,7 @@ public class Generator
         switch (expression)
         {
             case FuncCallExpressionNode funcCallExpression:
-                throw new NotImplementedException();
+                GenerateFuncCall(funcCallExpression.FuncCall, func);
                 break;
             case IdentifierNode identifier:
                 GenerateIdentifier(identifier, func);
@@ -280,7 +289,7 @@ public class Generator
             _builder.AppendLine($"    pop {registers[i]}");
         }
 
-        _builder.AppendLine($"    call {symbol.Label}");
+        _builder.AppendLine($"    call {symbol.StartLabel}");
         if (stackParameters != 0)
         {
             _builder.AppendLine($"    add rsp, {stackParameters}");

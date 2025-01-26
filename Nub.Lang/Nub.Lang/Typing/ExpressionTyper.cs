@@ -59,6 +59,9 @@ public class ExpressionTyper
             case FuncCallStatementNode funcCall:
                 PopulateFuncCallStatement(funcCall);
                 break;
+            case ReturnNode returnNode:
+                PopulateReturn(returnNode);
+                break;
             case SyscallStatementNode syscall:
                 PopulateSyscallStatement(syscall);
                 break;
@@ -83,6 +86,14 @@ public class ExpressionTyper
         foreach (var parameter in syscall.Syscall.Parameters)
         {
             PopulateExpression(parameter);
+        }
+    }
+
+    private void PopulateReturn(ReturnNode returnNode)
+    {
+        if (returnNode.Value.HasValue)
+        {
+            PopulateExpression(returnNode.Value.Value);
         }
     }
 

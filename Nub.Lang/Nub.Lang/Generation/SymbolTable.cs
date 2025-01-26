@@ -21,9 +21,10 @@ public class SymbolTable
     
     public void DefineFunc(FuncDefinitionNode funcDefinition)
     {
-        var label = $"func{++_labelIndex}";
+        var startLabel = $"func{++_labelIndex}";
+        var endLabel = $"endfunc{_labelIndex}";
         var localVariables = ResolveFunctionVariables(funcDefinition);
-        _functions.Add(new Func(label, funcDefinition.Name, funcDefinition.Parameters, funcDefinition.ReturnType, _globalVariables.Concat<Variable>(localVariables.Variables).ToList(), localVariables.StackSize));
+        _functions.Add(new Func(startLabel, endLabel, funcDefinition.Name, funcDefinition.Parameters, funcDefinition.ReturnType, _globalVariables.Concat<Variable>(localVariables.Variables).ToList(), localVariables.StackSize));
     }
 
     private (int StackSize, List<LocalVariable> Variables) ResolveFunctionVariables(FuncDefinitionNode funcDefinition)
@@ -88,9 +89,10 @@ public class GlobalVariable(string name, Type type, string identifier) : Variabl
     public string Identifier { get; } = identifier;
 }
 
-public class Func(string label, string name, IReadOnlyCollection<FuncParameter> parameters, Optional<Type> returnType, IReadOnlyCollection<Variable> variables, int stackAllocation)
+public class Func(string startLabel, string endLabel, string name, IReadOnlyCollection<FuncParameter> parameters, Optional<Type> returnType, IReadOnlyCollection<Variable> variables, int stackAllocation)
 {
-    public string Label { get; } = label;
+    public string StartLabel { get; } = startLabel;
+    public string EndLabel { get; } = endLabel;
     public string Name { get; } = name;
     public IReadOnlyCollection<FuncParameter> Parameters { get; } = parameters;
     public Optional<Type> ReturnType { get; } = returnType;

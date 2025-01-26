@@ -114,6 +114,27 @@ public class Parser
                         throw new Exception($"Unexpected symbol {symbol.Symbol}");
                 }
             }
+            case SymbolToken symbol:
+            {
+                switch (symbol.Symbol)
+                {
+                    case Symbol.Return:
+                    {
+                        var value = Optional<ExpressionNode>.Empty();
+                        if (!TryExpectSymbol(Symbol.Semicolon))
+                        {
+                            value = ParseExpression();
+                            ExpectSymbol(Symbol.Semicolon);
+                        }
+
+                        return new ReturnNode(value);
+                    }
+                    default:
+                    {
+                        throw new Exception($"Unexpected symbol {symbol.Symbol}");
+                    }
+                }   
+            }
             default:
                 throw new Exception($"Unexpected token type {token.GetType().Name}");
         }
