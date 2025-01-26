@@ -1,6 +1,6 @@
 ﻿namespace Nub.Lang.Parsing;
 
-public class BlockNode(IEnumerable<StatementNode> statements) : StatementNode
+public class BlockNode(IEnumerable<StatementNode> statements) : Node
 {
     public IEnumerable<StatementNode> Statements { get; } = statements;
 }

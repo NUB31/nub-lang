@@ -5,8 +5,6 @@ let STD_ERR = 2;
 
 func main() {
     write("test");
-    syscall(SYS_WRITE, STD_OUT, msg);
-    return 12;
 }
 
 func write(msg: void) {
