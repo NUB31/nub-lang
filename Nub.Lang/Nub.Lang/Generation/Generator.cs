@@ -75,10 +75,10 @@ public class Generator
                                 xor rcx, rcx
                             strlen_next:
                                 cmp [rdi], byte 0   ; null byte yet?
-                                jz strlen_null     ; yes, get out
+                                jz strlen_null      ; yes, get out
                                 inc rcx             ; char is ok, count it
                                 inc rdi             ; move to next char
-                                jmp strlen_next    ; process again
+                                jmp strlen_next     ; process again
                             strlen_null:
                                 mov rax, rcx        ; rcx = the length (put in rax)
                                 pop rcx             ; restore rcx
