@@ -56,6 +56,7 @@ public class Parser
             while (!TryExpectSymbol(Symbol.CloseParen))
             {
                 parameters.Add(ParseFuncParameter());
+                TryExpectSymbol(Symbol.Comma);
             }
         }
 

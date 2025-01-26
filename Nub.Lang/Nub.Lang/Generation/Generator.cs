@@ -109,17 +109,16 @@ public class Generator
         
         for (var i = 0; i < symbol.Parameters.Count; i++)
         {
-            var parameter = symbol.Parameters.ElementAt(i);
-
+            var parameter = symbol.ResolveLocalVariable(symbol.Parameters.ElementAt(i).Name);
             if (i < registers.Length)
             {
-                var variable = symbol.ResolveLocalVariable(parameter.Name);
-                _builder.AppendLine($"    mov [rbp - {variable.Offset}], {registers[i]}");
+                _builder.AppendLine($"    mov [rbp - {parameter.Offset}], {registers[i]}");
             }
             else
             {
-                // TODO: Implement parameters passed on the stack
-                throw new NotImplementedException();
+                var stackOffset = 16 + (i - registers.Length) * 8;
+                _builder.AppendLine($"    mov rax, [rbp + {stackOffset}]");
+                _builder.AppendLine($"    mov [rbp - {parameter.Offset}], rax");
             }
         }
         
@@ -262,24 +261,30 @@ public class Generator
         _builder.AppendLine("    call strlen");
     }
 
-    // TODO: Use stack for more than 6 parameters
     private void GenerateFuncCall(FuncCall funcCall, Func func)
     {
         var symbol = _symbolTable.ResolveFunc(funcCall.Name, funcCall.Parameters.Select(p => p.Type).ToList());
         string[] registers = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
-        foreach (var parameter in funcCall.Parameters)
+        for (var i = funcCall.Parameters.Count - 1; i >= 0; i--)
         {
-            GenerateExpression(parameter, func);
+            GenerateExpression(funcCall.Parameters.ElementAt(i), func);
             _builder.AppendLine("    push rax");
         }
         
-        for (var i = funcCall.Parameters.Count - 1; i >= 0; i--)
+        var registerParameters = Math.Min(registers.Length, funcCall.Parameters.Count);
+        var stackParameters = funcCall.Parameters.Count - registerParameters;
+        
+        for (var i = 0; i < registerParameters; i++)
         {
             _builder.AppendLine($"    pop {registers[i]}");
         }
-        
+
         _builder.AppendLine($"    call {symbol.Label}");
+        if (stackParameters != 0)
+        {
+            _builder.AppendLine($"    add rsp, {stackParameters}");
+        }
     }
 
     private void GenerateSyscall(Syscall syscall, Func func)
