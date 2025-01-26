@@ -11,6 +11,14 @@ public class Lexer
         ["let"] = Symbol.Let,
     };
 
+    private static readonly Dictionary<char[], Symbol> Chians = new()
+    {
+        [['=', '=']] = Symbol.Equal,
+        [['!', '=']] = Symbol.NotEqual,
+        [['<', '=']] = Symbol.LessThanOrEqual,
+        [['>', '=']] = Symbol.GreaterThanOrEqual,
+    };
+    
     private static readonly Dictionary<char, Symbol> Chars = new()
     {
         [';'] = Symbol.Semicolon,
@@ -26,6 +34,11 @@ public class Lexer
         ['='] = Symbol.Assign,
         ['<'] = Symbol.LessThan,
         ['>'] = Symbol.GreaterThan,
+        ['+'] = Symbol.Plus,
+        ['-'] = Symbol.Minus,
+        ['*'] = Symbol.Star,
+        ['/'] = Symbol.ForwardSlash,
+        ['!'] = Symbol.Bang,
     };
     
     private readonly string _src;
@@ -84,6 +97,22 @@ public class Lexer
             return new LiteralToken(new PrimitiveType(PrimitiveTypeKind.Int64), buffer);
         }
 
+        foreach (var chain in Chians)
+        {
+            if (current.Value != chain.Key[0]) continue;
+            
+            for (var i = 1; i < chain.Key.Length; i++)
+            {
+                var c = Peek(i);
+                if (!c.HasValue || c.Value != chain.Key[i]) break;
+
+                if (i == chain.Key.Length - 1)
+                {
+                    return new SymbolToken(chain.Value);
+                }
+            }
+        }
+
         if (Chars.TryGetValue(current.Value, out var charSymbol))
         {
             Next();
@@ -116,11 +145,11 @@ public class Lexer
         throw new Exception($"Unknown character {current.Value}");
     }
 
-    private Optional<char> Peek()
+    private Optional<char> Peek(int offset = 0)
     {
-        if (_index < _src.Length)
+        if (_index + offset < _src.Length)
         {
-            return _src[_index];
+            return _src[_index + offset];
         }
         
         return Optional<char>.Empty();
