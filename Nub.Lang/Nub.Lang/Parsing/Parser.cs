@@ -106,12 +106,18 @@ public class Parser
                             return new SyscallStatementNode(new Syscall(parameters));
                         }
 
-                        return  new FuncCallStatementNode(new FuncCall(identifier.Value, parameters));
+                        return new FuncCallStatementNode(new FuncCall(identifier.Value, parameters));
                     }
                     case Symbol.Assign:
-                        throw new NotImplementedException();
+                    {
+                        var value = ParseExpression();
+                        ExpectSymbol(Symbol.Semicolon);
+                        return new VariableReassignmentNode(identifier.Value, value);
+                    }
                     default:
+                    {
                         throw new Exception($"Unexpected symbol {symbol.Symbol}");
+                    }
                 }
             }
             case SymbolToken symbol:
@@ -144,7 +150,9 @@ public class Parser
                 }   
             }
             default:
+            {
                 throw new Exception($"Unexpected token type {token.GetType().Name}");
+            }
         }
     }
 

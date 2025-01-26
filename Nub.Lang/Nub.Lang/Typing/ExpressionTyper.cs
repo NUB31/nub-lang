@@ -68,6 +68,9 @@ public class ExpressionTyper
             case VariableAssignmentNode variableAssignment:
                 PopulateVariableAssignment(variableAssignment);
                 break;
+            case VariableReassignmentNode variableReassignment:
+                PopulateVariableReassignment(variableReassignment);
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(statement));
         }
@@ -101,6 +104,11 @@ public class ExpressionTyper
     {
         PopulateExpression(variableAssignment.Value);
         _variables.Push(new Variable(variableAssignment.Name, variableAssignment.Value.Type));
+    }
+
+    private void PopulateVariableReassignment(VariableReassignmentNode variableReassignment)
+    {
+        PopulateExpression(variableReassignment.Value);
     }
 
     private void PopulateExpression(ExpressionNode expression)

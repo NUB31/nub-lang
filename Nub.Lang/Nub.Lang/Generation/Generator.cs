@@ -10,7 +10,7 @@ public class Generator
     private readonly IReadOnlyCollection<DefinitionNode> _definitions;
     private readonly SymbolTable _symbolTable;
     private readonly StringBuilder _builder;
-    private Dictionary<string, string> _strings;
+    private readonly Dictionary<string, string> _strings;
     private int _stringIndex;
     
     public Generator(IReadOnlyCollection<DefinitionNode> definitions)
@@ -73,13 +73,13 @@ public class Generator
                             strlen:
                                 push rcx            ; save and clear out counter
                                 xor rcx, rcx
-                            .strlen_next:
+                            strlen_next:
                                 cmp [rdi], byte 0   ; null byte yet?
-                                jz .strlen_null     ; yes, get out
+                                jz strlen_null     ; yes, get out
                                 inc rcx             ; char is ok, count it
                                 inc rdi             ; move to next char
-                                jmp .strlen_next    ; process again
-                            .strlen_null:
+                                jmp strlen_next    ; process again
+                            strlen_null:
                                 mov rax, rcx        ; rcx = the length (put in rax)
                                 pop rcx             ; restore rcx
                                 ret                 ; get out
@@ -154,6 +154,9 @@ public class Generator
             case VariableAssignmentNode variableAssignment:
                 GenerateVariableAssignment(func, variableAssignment);
                 break;
+            case VariableReassignmentNode variableReassignment:
+                GenerateVariableReassignment(variableReassignment, func);
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(statement));
         }
@@ -171,8 +174,15 @@ public class Generator
 
     private void GenerateVariableAssignment(Func func, VariableAssignmentNode variableAssignment)
     {
-        GenerateExpression(variableAssignment.Value, func);
         var variable = func.ResolveLocalVariable(variableAssignment.Name);
+        GenerateExpression(variableAssignment.Value, func);
+        _builder.AppendLine($"    mov [rbp - {variable.Offset}], rax");
+    }
+
+    private void GenerateVariableReassignment(VariableReassignmentNode variableReassignment, Func func)
+    {
+        var variable = func.ResolveLocalVariable(variableReassignment.Name);
+        GenerateExpression(variableReassignment.Value, func);
         _builder.AppendLine($"    mov [rbp - {variable.Offset}], rax");
     }
 
