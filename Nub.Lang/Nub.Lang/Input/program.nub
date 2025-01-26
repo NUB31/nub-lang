@@ -4,13 +4,9 @@ let STD_OUT = 1;
 let STD_ERR = 2;
 
 func main() {
-    write(test());
+    write("test\n");
 }
 
-func test(): String {
-    return "test";
-}
-
-func write(msg: String) {
-    syscall(SYS_WRITE, STD_OUT, msg, strlen(msg));
+func write(msg: String): int64 {
+    return syscall(SYS_WRITE, STD_OUT, msg, strlen(msg));
 }

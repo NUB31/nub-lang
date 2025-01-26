@@ -146,21 +146,34 @@ public class Generator
                 GenerateFuncCall(funcCallStatement.FuncCall, func);
                 break;
             case ReturnNode @return:
-                if (@return.Value.HasValue)
-                {
-                    GenerateExpression(@return.Value.Value, func);
-                }
-                _builder.AppendLine($"    jmp {func.EndLabel}");
+                GenerateReturn(func, @return);
                 break;
             case SyscallStatementNode syscallStatement:
                 GenerateSyscall(syscallStatement.Syscall, func);
                 break;
             case VariableAssignmentNode variableAssignment:
-                throw new NotImplementedException();
+                GenerateVariableAssignment(func, variableAssignment);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(statement));
         }
+    }
+
+    private void GenerateReturn(Func func, ReturnNode @return)
+    {
+        if (@return.Value.HasValue)
+        {
+            GenerateExpression(@return.Value.Value, func);
+        }
+
+        _builder.AppendLine($"    jmp {func.EndLabel}");
+    }
+
+    private void GenerateVariableAssignment(Func func, VariableAssignmentNode variableAssignment)
+    {
+        GenerateExpression(variableAssignment.Value, func);
+        var variable = func.ResolveLocalVariable(variableAssignment.Name);
+        _builder.AppendLine($"    mov [rbp - {variable.Offset}], rax");
     }
 
     private void GenerateExpression(ExpressionNode expression, Func func)
@@ -180,7 +193,7 @@ public class Generator
                 GenerateStrlen(strlen, func);
                 break;
             case SyscallExpressionNode syscallExpression:
-                throw new NotImplementedException();
+                GenerateSyscall(syscallExpression.Syscall, func);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));

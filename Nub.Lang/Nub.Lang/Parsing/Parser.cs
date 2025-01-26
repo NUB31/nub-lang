@@ -129,6 +129,14 @@ public class Parser
 
                         return new ReturnNode(value);
                     }
+                    case Symbol.Let:
+                    {
+                        var name = ExpectIdentifier().Value;
+                        ExpectSymbol(Symbol.Assign);
+                        var value = ParseExpression();
+                        ExpectSymbol(Symbol.Semicolon);
+                        return new VariableAssignmentNode(name, value);
+                    }
                     default:
                     {
                         throw new Exception($"Unexpected symbol {symbol.Symbol}");

@@ -100,6 +100,7 @@ public class ExpressionTyper
     private void PopulateVariableAssignment(VariableAssignmentNode variableAssignment)
     {
         PopulateExpression(variableAssignment.Value);
+        _variables.Push(new Variable(variableAssignment.Name, variableAssignment.Value.Type));
     }
 
     private void PopulateExpression(ExpressionNode expression)
@@ -150,7 +151,7 @@ public class ExpressionTyper
         var type = _variables.FirstOrDefault(v => v.Name == identifier.Identifier)?.Type;
         if (type == null)
         {
-            throw new Exception($"Identifier {identifier} is not defined");
+            throw new Exception($"Variable {identifier} is not defined");
         }
         identifier.Type = type;
     }
