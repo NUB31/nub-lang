@@ -4,10 +4,7 @@ let STD_OUT = 1;
 let STD_ERR = 2;
 
 func main() {
-    let x = "test\n";
-    write(x);
-    x = "uwu\n";
-    write(x);
+    let x = 5 * 5 + 5;
 }
 
 func write(msg: String) {

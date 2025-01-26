@@ -190,6 +190,9 @@ public class Generator
     {
         switch (expression)
         {
+            case BinaryExpressionNode binaryExpression:
+                GenerateBinaryExpression(binaryExpression, func);
+                break;
             case FuncCallExpressionNode funcCallExpression:
                 GenerateFuncCall(funcCallExpression.FuncCall, func);
                 break;
@@ -207,6 +210,87 @@ public class Generator
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
+        }
+    }
+
+    private void GenerateBinaryExpression(BinaryExpressionNode binaryExpression, Func func)
+    {
+        GenerateExpression(binaryExpression.Left, func);
+        _builder.AppendLine("    push rax");
+        
+        GenerateExpression(binaryExpression.Right, func);
+        _builder.AppendLine("    pop rbx");
+
+        switch (binaryExpression.Operator)
+        {
+            
+            case BinaryExpressionOperator.Plus:
+            {
+                _builder.AppendLine("    add rax, rbx");
+                break;
+            }
+            case BinaryExpressionOperator.Minus:
+            {
+                _builder.AppendLine("    sub rax, rbx");
+                break;
+            }
+            case BinaryExpressionOperator.Multiply:
+            {
+                _builder.AppendLine("    imul rax, rbx");
+                break;
+            }
+            case BinaryExpressionOperator.Divide:
+            {
+                _builder.AppendLine("    xor rdx, rdx");
+                _builder.AppendLine("    div rbx");
+                break;
+            }
+            case BinaryExpressionOperator.Equal:
+            {
+                _builder.AppendLine("    cmp rax, rbx");
+                _builder.AppendLine("    sete al");
+                _builder.AppendLine("    movzx rax, al");
+                break;
+            }
+            case BinaryExpressionOperator.NotEqual:
+            {
+                _builder.AppendLine("    cmp rax, rbx");
+                _builder.AppendLine("    setne al");
+                _builder.AppendLine("    movzx rax, al");
+                break;
+            }
+            case BinaryExpressionOperator.GreaterThan:
+            {
+                _builder.AppendLine("    cmp rax, rbx");
+                _builder.AppendLine("    setg al");
+                _builder.AppendLine("    movzx rax, al");
+                break;
+            }
+            case BinaryExpressionOperator.GreaterThanOrEqual:
+            {
+                _builder.AppendLine("    cmp rax, rbx");
+                _builder.AppendLine("    setge al");
+                _builder.AppendLine("    movzx rax, al");
+                break;
+            }
+            case BinaryExpressionOperator.LessThan:
+            {
+                _builder.AppendLine("    cmp rax, rbx");
+                _builder.AppendLine("    setl al");
+                _builder.AppendLine("    movzx rax, al");
+                break;
+            }
+            case BinaryExpressionOperator.LessThanOrEqual:
+            {
+                _builder.AppendLine("    cmp rax, rbx");
+                _builder.AppendLine("    setle al");
+                _builder.AppendLine("    movzx rax, al");
+                break;
+            }
+            default:
+            {
+                throw new ArgumentOutOfRangeException(nameof(binaryExpression.Operator), binaryExpression.Operator, null);
+            }
         }
     }
 

@@ -1,4 +1,5 @@
-﻿using Nub.Lang.Lexing;
+﻿using System.Diagnostics.CodeAnalysis;
+using Nub.Lang.Lexing;
 using Nub.Lib;
 
 namespace Nub.Lang.Parsing;
@@ -156,7 +157,84 @@ public class Parser
         }
     }
 
-    private ExpressionNode ParseExpression()
+    private ExpressionNode ParseExpression(int precedence = 0)
+    {
+        var left = ParsePrimaryExpression();
+
+        while (true)
+        {
+            var token = Peek();
+            if (!token.HasValue || token.Value is not SymbolToken symbolToken || !TryGetBinaryOperator(symbolToken.Symbol, out var op) || GetBinaryOperatorPrecedence(op.Value) < precedence)
+                break;
+            
+            Next();
+            var right = ParseExpression(GetBinaryOperatorPrecedence(op.Value) + 1);
+
+            left = new BinaryExpressionNode(left, op.Value, right);
+        }
+        
+        return left;
+    }
+
+    private static int GetBinaryOperatorPrecedence(BinaryExpressionOperator binaryExpressionOperator)
+    {
+        return binaryExpressionOperator switch
+        {
+            BinaryExpressionOperator.Multiply => 3,
+            BinaryExpressionOperator.Divide => 3,
+            BinaryExpressionOperator.Plus => 2,
+            BinaryExpressionOperator.Minus => 2,
+            BinaryExpressionOperator.GreaterThan => 1,
+            BinaryExpressionOperator.GreaterThanOrEqual => 1,
+            BinaryExpressionOperator.LessThan => 1,
+            BinaryExpressionOperator.LessThanOrEqual => 1,
+            BinaryExpressionOperator.Equal => 0,
+            BinaryExpressionOperator.NotEqual => 0,
+            _ => throw new ArgumentOutOfRangeException(nameof(binaryExpressionOperator), binaryExpressionOperator, null)
+        };
+    }
+
+    private static bool TryGetBinaryOperator(Symbol symbol, [NotNullWhen(true)] out BinaryExpressionOperator? binaryExpressionOperator)
+    {
+        switch (symbol)
+        {
+            case Symbol.Equal:
+                binaryExpressionOperator = BinaryExpressionOperator.Equal;
+                return true;
+            case Symbol.NotEqual:
+                binaryExpressionOperator = BinaryExpressionOperator.NotEqual;
+                return true;
+            case Symbol.LessThan:
+                binaryExpressionOperator = BinaryExpressionOperator.LessThan;
+                return true;
+            case Symbol.LessThanOrEqual:
+                binaryExpressionOperator = BinaryExpressionOperator.LessThanOrEqual;
+                return true;
+            case Symbol.GreaterThan:
+                binaryExpressionOperator = BinaryExpressionOperator.GreaterThan;
+                return true;
+            case Symbol.GreaterThanOrEqual:
+                binaryExpressionOperator = BinaryExpressionOperator.GreaterThanOrEqual;
+                return true;
+            case Symbol.Plus:
+                binaryExpressionOperator = BinaryExpressionOperator.Plus;
+                return true;
+            case Symbol.Minus:
+                binaryExpressionOperator = BinaryExpressionOperator.Minus;
+                return true;
+            case Symbol.Star:
+                binaryExpressionOperator = BinaryExpressionOperator.Multiply;
+                return true;
+            case Symbol.ForwardSlash:
+                binaryExpressionOperator = BinaryExpressionOperator.Divide;
+                return true;
+            default:
+                binaryExpressionOperator = null;
+                return false;
+        }
+    }
+
+    private ExpressionNode ParsePrimaryExpression()
     {
         var token = ExpectToken();
         return token switch

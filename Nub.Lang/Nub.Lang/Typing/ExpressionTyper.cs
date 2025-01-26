@@ -115,6 +115,9 @@ public class ExpressionTyper
     {
         switch (expression)
         {
+            case BinaryExpressionNode binaryExpression:
+                PopulateBinaryExpression(binaryExpression);
+                break;
             case FuncCallExpressionNode funcCall:
                 PopulateFuncCallExpression(funcCall);
                 break;
@@ -132,6 +135,38 @@ public class ExpressionTyper
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
+        }
+    }
+
+    private void PopulateBinaryExpression(BinaryExpressionNode binaryExpression)
+    {
+        PopulateExpression(binaryExpression.Left);
+        PopulateExpression(binaryExpression.Right);
+        switch (binaryExpression.Operator)
+        {
+            case BinaryExpressionOperator.Equal:
+            case BinaryExpressionOperator.NotEqual:
+            case BinaryExpressionOperator.GreaterThan:
+            case BinaryExpressionOperator.GreaterThanOrEqual:
+            case BinaryExpressionOperator.LessThan:
+            case BinaryExpressionOperator.LessThanOrEqual:
+            {
+                binaryExpression.Type = new PrimitiveType(PrimitiveTypeKind.Bool);
+                break;
+            }
+            case BinaryExpressionOperator.Plus:
+            case BinaryExpressionOperator.Minus:
+            case BinaryExpressionOperator.Multiply:
+            case BinaryExpressionOperator.Divide:
+            {
+                // TODO: Add change if int8, int16, int32, float or double
+                binaryExpression.Type = new PrimitiveType(PrimitiveTypeKind.Int64);
+                break;
+            }
+            default:
+            {
+                throw new ArgumentOutOfRangeException(nameof(binaryExpression.Operator));
+            }
         }
     }
 
