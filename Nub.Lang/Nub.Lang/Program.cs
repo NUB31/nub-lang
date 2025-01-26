@@ -1,4 +1,5 @@
-﻿using Nub.Lang.Lexing;
+﻿using Nub.Lang.Generation;
+using Nub.Lang.Lexing;
 using Nub.Lang.Parsing;
 using Nub.Lang.Typing;
 
@@ -12,3 +13,10 @@ var definitions = parser.Parse();
 
 var typer = new ExpressionTyper(definitions);
 typer.Populate();
+
+var generator = new Generator(definitions);
+var asm = generator.Generate();
+
+Console.WriteLine(asm);
+
+File.WriteAllText(args[1], asm);

@@ -104,7 +104,7 @@ public class Lexer
                 buffer += current.Value;
             }
             
-            return new LiteralToken(new PointerType(), buffer);
+            return new LiteralToken(new StringType(), buffer);
         }
 
         if (char.IsWhiteSpace(current.Value))

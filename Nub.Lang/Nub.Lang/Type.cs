@@ -2,10 +2,15 @@
 
 namespace Nub.Lang;
 
-public abstract class Type;
+public abstract record Type;
 
-public class PrimitiveType(PrimitiveTypeKind kind) : Type
+public record PrimitiveType : Type
 {
+    public PrimitiveType(PrimitiveTypeKind kind)
+    {
+        Kind = kind;
+    }
+    
     public static PrimitiveType Parse(string value)
     {
         var kind = value switch
@@ -28,7 +33,9 @@ public class PrimitiveType(PrimitiveTypeKind kind) : Type
         return new PrimitiveType(kind);
     }
     
-    public PrimitiveTypeKind Kind { get; } = kind;
+    public PrimitiveTypeKind Kind { get; }
+
+    public override string ToString() => Kind.ToString();
 }
 
 public enum PrimitiveTypeKind
@@ -47,10 +54,21 @@ public enum PrimitiveTypeKind
     Double,
 }
 
-public class PointerType : Type;
-
-public class DelegateType(IEnumerable<Type> parameters, Optional<Type> returnType) : Type
+public record StringType : Type
 {
-    public IEnumerable<Type> Parameters { get; } = parameters;
-    public Optional<Type> ReturnType { get; } = returnType;
+    public override string ToString() => "string";
+}
+
+public record DelegateType : Type
+{
+    public DelegateType(IReadOnlyCollection<Type> parameters, Optional<Type> returnType)
+    {
+        Parameters = parameters;
+        ReturnType = returnType;
+    }
+    
+    public IReadOnlyCollection<Type> Parameters { get; }
+    public Optional<Type> ReturnType { get; }
+
+    public override string ToString() => $"({string.Join(", ", Parameters)}): {(ReturnType.HasValue ? ReturnType.Value.ToString() : "")}";
 }

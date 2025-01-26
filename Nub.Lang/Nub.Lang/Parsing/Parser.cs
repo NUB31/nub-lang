@@ -8,7 +8,7 @@ public class Parser
     private readonly Token[] _tokens;
     private int _index;
 
-    public Parser(IEnumerable<Token> tokens)
+    public Parser(IReadOnlyCollection<Token> tokens)
     {
         _tokens = tokens.ToArray();
     }
@@ -181,7 +181,12 @@ public class Parser
 
             var returnType = Optional<Type>.OfNullable(typeArguments.LastOrDefault());
 
-            return new DelegateType(typeArguments.Take(typeArguments.Count - 1), returnType);
+            return new DelegateType(typeArguments.Take(typeArguments.Count - 1).ToList(), returnType);
+        }
+
+        if (name == "pointer")
+        {
+            return new StringType();
         }
 
         return PrimitiveType.Parse(name);

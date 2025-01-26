@@ -1,6 +1,6 @@
 ﻿namespace Nub.Lang.Parsing;
 
-public class BlockNode(IEnumerable<StatementNode> statements) : Node
+public class BlockNode(IReadOnlyCollection<StatementNode> statements) : Node
 {
-    public IEnumerable<StatementNode> Statements { get; } = statements;
+    public IReadOnlyCollection<StatementNode> Statements { get; } = statements;
 }

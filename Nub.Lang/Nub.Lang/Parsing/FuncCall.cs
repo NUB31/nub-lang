@@ -1,9 +1,9 @@
 ﻿namespace Nub.Lang.Parsing;
 
-public class FuncCall(string name, IEnumerable<ExpressionNode> parameters)
+public class FuncCall(string name, IReadOnlyCollection<ExpressionNode> parameters)
 {
     public string Name { get; } = name;
-    public IEnumerable<ExpressionNode> Parameters { get; } = parameters;
+    public IReadOnlyCollection<ExpressionNode> Parameters { get; } = parameters;
 
     public override string ToString() => $"{Name}()";
 }

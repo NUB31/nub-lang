@@ -4,9 +4,9 @@ let STD_OUT = 1;
 let STD_ERR = 2;
 
 func main() {
-    write("test");
+    write("test\n");
 }
 
-func write(msg: Func) {
-    syscall(SYS_WRITE, STD_OUT, msg);
+func write(msg: pointer) {
+    syscall(SYS_WRITE, STD_OUT, msg, 5);
 }
