@@ -1,0 +1,14 @@
+let SYS_WRITE = 1;
+let STD_IN = 0;
+let STD_OUT = 1;
+let STD_ERR = 2;
+
+func main() {
+    write("test");
+    syscall(SYS_WRITE, STD_OUT, msg);
+    return 12;
+}
+
+func write(msg: void) {
+    syscall(SYS_WRITE, STD_OUT, msg);
+}
