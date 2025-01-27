@@ -90,19 +90,19 @@ public class Generator
                             strcmp:
                                 xor rdx, rdx
                             strcmp_loop:
-                            	mov al, [rsi + rdx]
-                            	mov bl, [rdi + rdx]
-                            	inc rdx
-                            	cmp al, bl
-                            	jne strcmp_not_equal
-                            	cmp al, 0
-                            	je strcmp_equal
-                            	jmp strcmp_loop
+                                mov al, [rsi + rdx]
+                                mov bl, [rdi + rdx]
+                                inc rdx
+                                cmp al, bl
+                                jne strcmp_not_equal
+                                cmp al, 0
+                                je strcmp_equal
+                                jmp strcmp_loop
                             strcmp_not_equal:
-                            	mov rax, 0
+                                mov rax, 0
                                 ret
                             strcmp_equal:
-                            	mov rax, 1
+                                mov rax, 1
                                 ret
                             """);
         
@@ -148,7 +148,7 @@ public class Generator
         GenerateBlock(node.Body, func);
 
         _builder.AppendLine($"{func.EndLabel}:");
-        _builder.AppendLine("; Clean up stack frame");
+        _builder.AppendLine("    ; Clean up stack frame");
         _builder.AppendLine("    mov rsp, rbp");
         _builder.AppendLine("    pop rbp");
         _builder.AppendLine("    ret");
