@@ -43,10 +43,10 @@ public class Generator
         
         var main = _symbolTable.ResolveFunc(Entrypoint, []);
         
+        _builder.AppendLine($"    ; Initialize global variables");
         foreach (var globalVariable in _definitions.OfType<GlobalVariableDefinitionNode>())
         {
             var symbol = _symbolTable.ResolveGlobalVariable(globalVariable.Name);
-            _builder.AppendLine($"    ; Initialize global variable {symbol.Name}");
             GenerateExpression(globalVariable.Value, main);
             _builder.AppendLine($"    mov [{symbol.Identifier}], rax");
         }
@@ -88,7 +88,7 @@ public class Generator
         _builder.AppendLine("""
                             
                             strcmp:
-                            xor rdx, rdx
+                                xor rdx, rdx
                             strcmp_loop:
                             	mov al, [rsi + rdx]
                             	mov bl, [rdi + rdx]
