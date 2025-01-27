@@ -8,6 +8,7 @@ public class SymbolToken(Symbol symbol) : Token
 public enum Symbol
 {
     Whitespace,
+    Extern,
     Func,
     Return,
     Let,

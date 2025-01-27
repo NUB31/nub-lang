@@ -33,4 +33,6 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
-Nub.Lang/Nub.Lang/Output/out*
+Nub.Lang/Nub.Lang/Output/*.o
+Nub.Lang/Nub.Lang/Output/out
+Nub.Lang/Nub.Lang/Output/out.asm

@@ -11,6 +11,7 @@ public class Generator
     private readonly SymbolTable _symbolTable;
     private readonly StringBuilder _builder;
     private readonly Dictionary<string, string> _strings;
+    private readonly HashSet<string> _externFuncDefinitions;
     private int _stringIndex;
     
     public Generator(IReadOnlyCollection<DefinitionNode> definitions)
@@ -18,8 +19,15 @@ public class Generator
         _strings = [];
         _definitions = definitions;
         _builder = new StringBuilder();
+        _externFuncDefinitions = ["strcmp"];
         _symbolTable = new SymbolTable(definitions.OfType<GlobalVariableDefinitionNode>().ToList());
-        foreach (var funcDefinitionNode in definitions.OfType<FuncDefinitionNode>())
+        
+        foreach (var funcDefinitionNode in definitions.OfType<ExternFuncDefinitionNode>())
+        {
+            _symbolTable.DefineFunc(funcDefinitionNode);
+            _externFuncDefinitions.Add(_symbolTable.ResolveExternFunc(funcDefinitionNode.Name, funcDefinitionNode.Parameters.Select(p => p.Type).ToList()).StartLabel);
+        }
+        foreach (var funcDefinitionNode in definitions.OfType<LocalFuncDefinitionNode>())
         {
             _symbolTable.DefineFunc(funcDefinitionNode);
         }
@@ -28,6 +36,11 @@ public class Generator
     public string Generate()
     {
         _builder.AppendLine("global _start");
+        
+        foreach (var externFuncDefinition in _externFuncDefinitions)
+        {
+            _builder.AppendLine($"extern {externFuncDefinition}");
+        }
         
         _builder.AppendLine();
         _builder.AppendLine("section .bss");
@@ -41,7 +54,7 @@ public class Generator
         _builder.AppendLine("section .text");
         _builder.AppendLine("_start:");
         
-        var main = _symbolTable.ResolveFunc(Entrypoint, []);
+        var main = _symbolTable.ResolveLocalFunc(Entrypoint, []);
         
         _builder.AppendLine("    ; Initialize global variables");
         foreach (var globalVariable in _definitions.OfType<GlobalVariableDefinitionNode>())
@@ -56,56 +69,17 @@ public class Generator
         _builder.AppendLine($"    call {main.StartLabel}");
 
         _builder.AppendLine();
-        _builder.AppendLine("    ; Exit with status code 0");
+        _builder.AppendLine(main.ReturnType.HasValue
+            ? "    mov rdi, rax ; Exit with return value of entrypoint"
+            : "    mov rdi, 0 ; Exit with default status code 0");
         _builder.AppendLine("    mov rax, 60");
-        _builder.AppendLine("    mov rdi, 0");
         _builder.AppendLine("    syscall");
 
-        foreach (var funcDefinition in _definitions.OfType<FuncDefinitionNode>())
+        foreach (var funcDefinition in _definitions.OfType<LocalFuncDefinitionNode>())
         {
             _builder.AppendLine();
             GenerateFuncDefinition(funcDefinition);
         }
-
-        _builder.AppendLine("""
-                            
-                            ; https://tuttlem.github.io/2013/01/08/strlen-implementation-in-nasm.html
-                            strlen:
-                                push rcx            ; save and clear out counter
-                                xor rcx, rcx
-                            strlen_next:
-                                cmp [rdi], byte 0   ; null byte yet?
-                                jz strlen_null      ; yes, get out
-                                inc rcx             ; char is ok, count it
-                                inc rdi             ; move to next char
-                                jmp strlen_next     ; process again
-                            strlen_null:
-                                mov rax, rcx        ; rcx = the length (put in rax)
-                                pop rcx             ; restore rcx
-                                ret                 ; get out
-                            """);
-
-        _builder.AppendLine("""
-                            
-                            strcmp:
-                                xor rdx, rdx
-                            strcmp_loop:
-                                mov al, [rsi + rdx]
-                                mov bl, [rdi + rdx]
-                                inc rdx
-                                cmp al, bl
-                                jne strcmp_not_equal
-                                cmp al, 0
-                                je strcmp_equal
-                                jmp strcmp_loop
-                            strcmp_not_equal:
-                                mov rax, 0
-                                ret
-                            strcmp_equal:
-                                mov rax, 1
-                                ret
-                            """);
-        
         
         _builder.AppendLine();
         _builder.AppendLine("section .data");
@@ -117,9 +91,10 @@ public class Generator
         return _builder.ToString();
     }
 
-    private void GenerateFuncDefinition(FuncDefinitionNode node)
+    private void GenerateFuncDefinition(LocalFuncDefinitionNode node)
     {
-        var func = _symbolTable.ResolveFunc(node.Name, node.Parameters.Select(p => p.Type).ToList());
+        var func = _symbolTable.ResolveLocalFunc(node.Name, node.Parameters.Select(p => p.Type).ToList());
+        
         _builder.AppendLine($"; {node.ToString()}");
         _builder.AppendLine($"{func.StartLabel}:");
         _builder.AppendLine("    ; Set up stack frame");
@@ -153,8 +128,8 @@ public class Generator
         _builder.AppendLine("    pop rbp");
         _builder.AppendLine("    ret");
     }
-
-    private void GenerateBlock(BlockNode block, Func func)
+    
+    private void GenerateBlock(BlockNode block, LocalFunc func)
     {
         foreach (var statement in block.Statements)
         {
@@ -162,7 +137,7 @@ public class Generator
         }
     }
 
-    private void GenerateStatement(StatementNode statement, Func func)
+    private void GenerateStatement(StatementNode statement, LocalFunc func)
     {
         switch (statement)
         {
@@ -170,13 +145,13 @@ public class Generator
                 GenerateFuncCall(funcCallStatement.FuncCall, func);
                 break;
             case ReturnNode @return:
-                GenerateReturn(func, @return);
+                GenerateReturn(@return, func);
                 break;
             case SyscallStatementNode syscallStatement:
                 GenerateSyscall(syscallStatement.Syscall, func);
                 break;
             case VariableAssignmentNode variableAssignment:
-                GenerateVariableAssignment(func, variableAssignment);
+                GenerateVariableAssignment(variableAssignment, func);
                 break;
             case VariableReassignmentNode variableReassignment:
                 GenerateVariableReassignment(variableReassignment, func);
@@ -186,7 +161,7 @@ public class Generator
         }
     }
 
-    private void GenerateReturn(Func func, ReturnNode @return)
+    private void GenerateReturn(ReturnNode @return, LocalFunc func)
     {
         if (@return.Value.HasValue)
         {
@@ -196,21 +171,21 @@ public class Generator
         _builder.AppendLine($"    jmp {func.EndLabel}");
     }
 
-    private void GenerateVariableAssignment(Func func, VariableAssignmentNode variableAssignment)
+    private void GenerateVariableAssignment(VariableAssignmentNode variableAssignment, LocalFunc func)
     {
         var variable = func.ResolveLocalVariable(variableAssignment.Name);
         GenerateExpression(variableAssignment.Value, func);
         _builder.AppendLine($"    mov [rbp - {variable.Offset}], rax");
     }
 
-    private void GenerateVariableReassignment(VariableReassignmentNode variableReassignment, Func func)
+    private void GenerateVariableReassignment(VariableReassignmentNode variableReassignment, LocalFunc func)
     {
         var variable = func.ResolveLocalVariable(variableReassignment.Name);
         GenerateExpression(variableReassignment.Value, func);
         _builder.AppendLine($"    mov [rbp - {variable.Offset}], rax");
     }
 
-    private void GenerateExpression(ExpressionNode expression, Func func)
+    private void GenerateExpression(ExpressionNode expression, LocalFunc func)
     {
         switch (expression)
         {
@@ -224,10 +199,7 @@ public class Generator
                 GenerateIdentifier(identifier, func);
                 break;
             case LiteralNode literal:
-                GenerateLiteral(literal, func);
-                break;
-            case StrlenNode strlen:
-                GenerateStrlen(strlen, func);
+                GenerateLiteral(literal);
                 break;
             case SyscallExpressionNode syscallExpression:
                 GenerateSyscall(syscallExpression.Syscall, func);
@@ -237,7 +209,7 @@ public class Generator
         }
     }
 
-    private void GenerateBinaryExpression(BinaryExpressionNode binaryExpression, Func func)
+    private void GenerateBinaryExpression(BinaryExpressionNode binaryExpression, LocalFunc func)
     {
         GenerateExpression(binaryExpression.Left, func);
         _builder.AppendLine("    push rax");
@@ -396,7 +368,7 @@ public class Generator
         }
     }
 
-    private void GenerateIdentifier(IdentifierNode identifier, Func func)
+    private void GenerateIdentifier(IdentifierNode identifier, LocalFunc func)
     {
         var variable = func.ResolveVariable(identifier.Identifier);
 
@@ -417,7 +389,7 @@ public class Generator
         }
     }
 
-    private void GenerateLiteral(LiteralNode literal, Func func)
+    private void GenerateLiteral(LiteralNode literal)
     {
         switch (literal.Type)
         {
@@ -459,14 +431,7 @@ public class Generator
         }
     }
 
-    private void GenerateStrlen(StrlenNode strlen, Func func)
-    {
-        GenerateExpression(strlen.String, func);
-        _builder.AppendLine("    mov rdi, rax");
-        _builder.AppendLine("    call strlen");
-    }
-
-    private void GenerateFuncCall(FuncCall funcCall, Func func)
+    private void GenerateFuncCall(FuncCall funcCall, LocalFunc func)
     {
         var symbol = _symbolTable.ResolveFunc(funcCall.Name, funcCall.Parameters.Select(p => p.Type).ToList());
         string[] registers = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
@@ -492,7 +457,7 @@ public class Generator
         }
     }
     
-    private void GenerateSyscall(Syscall syscall, Func func)
+    private void GenerateSyscall(Syscall syscall, LocalFunc func)
     {
         string[] registers = ["rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"];
 

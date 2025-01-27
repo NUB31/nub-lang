@@ -33,6 +33,7 @@ public class Parser
         {
             Symbol.Let => ParseGlobalVariableDefinition(),
             Symbol.Func => ParseFuncDefinition(),
+            Symbol.Extern => ParseExternFuncDefinition(),
             _ => throw new Exception("Unexpected symbol: " + keyword.Symbol)
         };
     }
@@ -47,7 +48,7 @@ public class Parser
         return new GlobalVariableDefinitionNode(name.Value, value);
     }
 
-    private FuncDefinitionNode ParseFuncDefinition()
+    private LocalFuncDefinitionNode ParseFuncDefinition()
     {
         var name = ExpectIdentifier();
         List<FuncParameter> parameters = [];
@@ -69,7 +70,33 @@ public class Parser
 
         var body = ParseBlock();
 
-        return new FuncDefinitionNode(name.Value, parameters, body, returnType);
+        return new LocalFuncDefinitionNode(name.Value, parameters, body, returnType);
+    }
+
+    private ExternFuncDefinitionNode ParseExternFuncDefinition()
+    {
+        ExpectSymbol(Symbol.Func);
+        var name = ExpectIdentifier();
+        List<FuncParameter> parameters = [];
+        ExpectSymbol(Symbol.OpenParen);
+        if (!TryExpectSymbol(Symbol.CloseParen))
+        {
+            while (!TryExpectSymbol(Symbol.CloseParen))
+            {
+                parameters.Add(ParseFuncParameter());
+                TryExpectSymbol(Symbol.Comma);
+            }
+        }
+
+        var returnType = Optional<Type>.Empty();
+        if (TryExpectSymbol(Symbol.Colon))
+        {
+            returnType = ParseType();
+        }
+
+        ExpectSymbol(Symbol.Semicolon);
+        
+        return new ExternFuncDefinitionNode(name.Value, parameters, returnType);
     }
 
     private FuncParameter ParseFuncParameter()
@@ -266,11 +293,6 @@ public class Parser
             if (identifier.Value == "syscall")
             {
                 return new SyscallExpressionNode(new Syscall(parameters));
-            }
-
-            if (identifier.Value == "strlen" && parameters.Count == 1)
-            {
-                return new StrlenNode(parameters[0]);
             }
 
             return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));

@@ -1,9 +1,3 @@
-#!/bin/bash
-
-nasm -g -felf64 out.asm -o out.o
-ld out.o -o out
-
+#!/bin/sh
+./build.sh
 gdb -tui out
-
-rm out.o
-rm out

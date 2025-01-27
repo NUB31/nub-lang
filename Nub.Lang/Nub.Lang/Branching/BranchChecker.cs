@@ -13,7 +13,7 @@ public class BranchChecker
 
     public void Check()
     {
-        foreach (var funcDefinition in _definitions.OfType<FuncDefinitionNode>())
+        foreach (var funcDefinition in _definitions.OfType<LocalFuncDefinitionNode>())
         {
             if (funcDefinition.ReturnType.HasValue)
             {

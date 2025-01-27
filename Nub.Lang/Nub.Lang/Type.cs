@@ -18,6 +18,7 @@ public record PrimitiveType : Type
             "bool" => PrimitiveTypeKind.Bool,
             "char" => PrimitiveTypeKind.Char,
             "int64" => PrimitiveTypeKind.Int64,
+            "int32" => PrimitiveTypeKind.Int32,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         };
         

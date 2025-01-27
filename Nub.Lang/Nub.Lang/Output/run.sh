@@ -1,10 +1,4 @@
-#!/bin/bash
-
-nasm -g -felf64 out.asm -o out.o
-ld out.o -o out
-
+#!/bin/sh
+./build.sh
 ./out
 echo "Process exited with status code $?"
-
-rm out.o
-rm out

@@ -1,16 +1,35 @@
-﻿using Nub.Lang.Parsing;
+﻿using Nub.Core;
+using Nub.Lang.Parsing;
 
 namespace Nub.Lang.Typing;
 
+public class Func(string name, IReadOnlyCollection<FuncParameter> parameters, Optional<BlockNode> body, Optional<Type> returnType)
+{
+    public string Name { get; } = name;
+    public IReadOnlyCollection<FuncParameter> Parameters { get; } = parameters;
+    public Optional<BlockNode> Body { get; } = body;
+    public Optional<Type> ReturnType { get; } = returnType;
+}
+
 public class ExpressionTyper
 {
-    private readonly IReadOnlyCollection<FuncDefinitionNode> _functions;
+    private readonly IReadOnlyCollection<Func> _functions;
     private readonly IReadOnlyCollection<GlobalVariableDefinitionNode> _variableDefinitions;
     private readonly Stack<Variable> _variables;
 
     public ExpressionTyper(IReadOnlyCollection<DefinitionNode> definitions)
     {
-        _functions = definitions.OfType<FuncDefinitionNode>().ToList();
+        var functions = definitions
+            .OfType<LocalFuncDefinitionNode>()
+            .Select(f => new Func(f.Name, f.Parameters, f.Body, f.ReturnType))
+            .ToList();
+        
+        var externFunctions = definitions
+            .OfType<ExternFuncDefinitionNode>()
+            .Select(f => new Func(f.Name, f.Parameters, Optional<BlockNode>.Empty(), f.ReturnType))
+            .ToList();
+        
+        _functions = functions.Concat(externFunctions).ToList();
         _variableDefinitions = definitions.OfType<GlobalVariableDefinitionNode>().ToList();
         _variables = new Stack<Variable>();
     }
@@ -31,8 +50,12 @@ public class ExpressionTyper
             {
                 _variables.Push(new Variable(parameter.Name, parameter.Type));
             }
-            PopulateBlock(function.Body);
-            for (var i = 0; i < function.Parameters.Count(); i++)
+
+            if (function.Body.HasValue)
+            {
+                PopulateBlock(function.Body.Value);
+            }
+            for (var i = 0; i < function.Parameters.Count; i++)
             {
                 _variables.Pop();
             }
@@ -127,9 +150,6 @@ public class ExpressionTyper
             case LiteralNode literal:
                 PopulateLiteral(literal);
                 break;
-            case StrlenNode strlen:
-                PopulateStrlen(strlen);
-                break;
             case SyscallExpressionNode syscall:
                 PopulateSyscallExpression(syscall);
                 break;
@@ -201,11 +221,6 @@ public class ExpressionTyper
     private static void PopulateLiteral(LiteralNode literal)
     {
         literal.Type = literal.LiteralType;
-    }
-
-    private static void PopulateStrlen(StrlenNode strlen)
-    {
-        strlen.Type = new PrimitiveType(PrimitiveTypeKind.Int64);
     }
 
     private void PopulateSyscallExpression(SyscallExpressionNode syscall)

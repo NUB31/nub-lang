@@ -1,3 +1,15 @@
+let SYS_WRITE = 1;
+let STD_IN = 0;
+let STD_OUT = 1;
+let STD_ERR = 2;
+
 func main() {
-    syscall(60, 5 + 3 * 5);
+    print("test\n");
 }
+
+func print(msg: String) {
+    syscall(SYS_WRITE, STD_OUT, msg, strlen(msg));
+}
+
+extern func strlen(msg: String): int64;
+extern func strcmp(a: String, b: String): bool;

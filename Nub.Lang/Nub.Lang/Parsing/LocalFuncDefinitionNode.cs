@@ -2,7 +2,7 @@
 
 namespace Nub.Lang.Parsing;
 
-public class FuncDefinitionNode(string name, IReadOnlyCollection<FuncParameter> parameters, BlockNode body, Optional<Type> returnType) : DefinitionNode
+public class LocalFuncDefinitionNode(string name, IReadOnlyCollection<FuncParameter> parameters, BlockNode body, Optional<Type> returnType) : DefinitionNode
 {
     public string Name { get; } = name;
     public IReadOnlyCollection<FuncParameter> Parameters { get; } = parameters;
