@@ -1,4 +1,3 @@
 func main() {
-    let x = "test" == "test";
-    syscall(60, x);
+    syscall(60, 5 + 3 * 5);
 }

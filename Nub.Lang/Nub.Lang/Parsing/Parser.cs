@@ -237,12 +237,19 @@ public class Parser
     private ExpressionNode ParsePrimaryExpression()
     {
         var token = ExpectToken();
-        return token switch
+        switch (token)
         {
-            LiteralToken literal => new LiteralNode(literal.Value, literal.Type),
-            IdentifierToken identifier => ParseExpressionIdentifier(identifier),
-            _ => throw new Exception($"Unexpected token type {token.GetType().Name}")
-        };
+            case LiteralToken literal:
+                return new LiteralNode(literal.Value, literal.Type);
+            case IdentifierToken identifier:
+                return ParseExpressionIdentifier(identifier);
+            case SymbolToken { Symbol: Symbol.OpenParen }:
+                var expression = ParseExpression();
+                ExpectSymbol(Symbol.CloseParen);
+                return expression;
+            default: 
+                throw new Exception($"Unexpected token type {token.GetType().Name}");
+        }
     }
 
     private ExpressionNode ParseExpressionIdentifier(IdentifierToken identifier)
