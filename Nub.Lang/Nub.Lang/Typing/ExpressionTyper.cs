@@ -159,8 +159,7 @@ public class ExpressionTyper
             case BinaryExpressionOperator.Multiply:
             case BinaryExpressionOperator.Divide:
             {
-                // TODO: Add change if int8, int16, int32, float or double
-                binaryExpression.Type = new PrimitiveType(PrimitiveTypeKind.Int64);
+                binaryExpression.Type = binaryExpression.Left.Type;
                 break;
             }
             default:

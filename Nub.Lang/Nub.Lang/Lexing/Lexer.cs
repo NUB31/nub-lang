@@ -97,6 +97,7 @@ public class Lexer
             return new LiteralToken(new PrimitiveType(PrimitiveTypeKind.Int64), buffer);
         }
 
+        // TODO: Revisit this
         foreach (var chain in Chians)
         {
             if (current.Value != chain.Key[0]) continue;
@@ -108,6 +109,11 @@ public class Lexer
 
                 if (i == chain.Key.Length - 1)
                 {
+                    for (var j = 0; j <= i; j++)
+                    {
+                        Next();
+                    }
+
                     return new SymbolToken(chain.Value);
                 }
             }

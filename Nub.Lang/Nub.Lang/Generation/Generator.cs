@@ -84,6 +84,27 @@ public class Generator
                                 pop rcx             ; restore rcx
                                 ret                 ; get out
                             """);
+
+        _builder.AppendLine("""
+                            
+                            strcmp:
+                            xor rdx, rdx
+                            strcmp_loop:
+                            	mov al, [rsi + rdx]
+                            	mov bl, [rdi + rdx]
+                            	inc rdx
+                            	cmp al, bl
+                            	jne strcmp_not_equal
+                            	cmp al, 0
+                            	je strcmp_equal
+                            	jmp strcmp_loop
+                            strcmp_not_equal:
+                            	mov rax, 0
+                                ret
+                            strcmp_equal:
+                            	mov rax, 1
+                                ret
+                            """);
         
         
         _builder.AppendLine();
@@ -101,12 +122,14 @@ public class Generator
         var func = _symbolTable.ResolveFunc(node.Name, node.Parameters.Select(p => p.Type).ToList());
         _builder.AppendLine($"; {node.ToString()}");
         _builder.AppendLine($"{func.StartLabel}:");
+        _builder.AppendLine("    ; Set up stack frame");
         _builder.AppendLine("    push rbp");
         _builder.AppendLine("    mov rbp, rsp");
         _builder.AppendLine($"    sub rsp, {func.StackAllocation}");
         
         string[] registers = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
         
+        _builder.AppendLine("    ; Body");
         for (var i = 0; i < func.Parameters.Count; i++)
         {
             var parameter = func.ResolveLocalVariable(func.Parameters.ElementAt(i).Name);
@@ -125,6 +148,7 @@ public class Generator
         GenerateBlock(node.Body, func);
 
         _builder.AppendLine($"{func.EndLabel}:");
+        _builder.AppendLine("; Clean up stack frame");
         _builder.AppendLine("    mov rsp, rbp");
         _builder.AppendLine("    pop rbp");
         _builder.AppendLine("    ret");
@@ -217,80 +241,158 @@ public class Generator
     {
         GenerateExpression(binaryExpression.Left, func);
         _builder.AppendLine("    push rax");
-        
         GenerateExpression(binaryExpression.Right, func);
-        _builder.AppendLine("    pop rbx");
+        _builder.AppendLine("    mov rbx, rax");
+        _builder.AppendLine("    pop rax");
 
         switch (binaryExpression.Operator)
         {
-            
-            case BinaryExpressionOperator.Plus:
-            {
-                _builder.AppendLine("    add rax, rbx");
-                break;
-            }
-            case BinaryExpressionOperator.Minus:
-            {
-                _builder.AppendLine("    sub rax, rbx");
-                break;
-            }
-            case BinaryExpressionOperator.Multiply:
-            {
-                _builder.AppendLine("    imul rax, rbx");
-                break;
-            }
-            case BinaryExpressionOperator.Divide:
-            {
-                _builder.AppendLine("    xor rdx, rdx");
-                _builder.AppendLine("    div rbx");
-                break;
-            }
             case BinaryExpressionOperator.Equal:
-            {
-                _builder.AppendLine("    cmp rax, rbx");
+                GenerateComparison(binaryExpression.Left.Type);
                 _builder.AppendLine("    sete al");
                 _builder.AppendLine("    movzx rax, al");
                 break;
-            }
             case BinaryExpressionOperator.NotEqual:
-            {
-                _builder.AppendLine("    cmp rax, rbx");
+                GenerateComparison(binaryExpression.Left.Type);
                 _builder.AppendLine("    setne al");
                 _builder.AppendLine("    movzx rax, al");
                 break;
-            }
             case BinaryExpressionOperator.GreaterThan:
-            {
-                _builder.AppendLine("    cmp rax, rbx");
+                GenerateComparison(binaryExpression.Left.Type);
                 _builder.AppendLine("    setg al");
                 _builder.AppendLine("    movzx rax, al");
                 break;
-            }
             case BinaryExpressionOperator.GreaterThanOrEqual:
-            {
-                _builder.AppendLine("    cmp rax, rbx");
+                GenerateComparison(binaryExpression.Left.Type);
                 _builder.AppendLine("    setge al");
                 _builder.AppendLine("    movzx rax, al");
                 break;
-            }
             case BinaryExpressionOperator.LessThan:
-            {
-                _builder.AppendLine("    cmp rax, rbx");
+                GenerateComparison(binaryExpression.Left.Type);
                 _builder.AppendLine("    setl al");
                 _builder.AppendLine("    movzx rax, al");
                 break;
-            }
             case BinaryExpressionOperator.LessThanOrEqual:
-            {
-                _builder.AppendLine("    cmp rax, rbx");
+                GenerateComparison(binaryExpression.Left.Type);
                 _builder.AppendLine("    setle al");
                 _builder.AppendLine("    movzx rax, al");
                 break;
-            }
+            case BinaryExpressionOperator.Plus:
+                GenerateBinaryAddition(binaryExpression.Left.Type);
+                break;
+            case BinaryExpressionOperator.Minus:
+                GenerateBinarySubtraction(binaryExpression.Left.Type);
+                break;
+            case BinaryExpressionOperator.Multiply:
+                GenerateBinaryMultiplication(binaryExpression.Left.Type);
+                break;
+            case BinaryExpressionOperator.Divide:
+                GenerateBinaryDivision(binaryExpression.Left.Type);
+                break;
             default:
-            {
-                throw new ArgumentOutOfRangeException(nameof(binaryExpression.Operator), binaryExpression.Operator, null);
-            }
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private void GenerateComparison(Type type)
+    {
+        switch (type)
+        {
+            case DelegateType:
+                throw new NotSupportedException($"Comparison on type {type.GetType().Name} is not supported");
+                break;
+            case PrimitiveType:
+                _builder.AppendLine("    cmp rax, rax");
+                break;
+            case StringType:
+                _builder.AppendLine("    mov rdi, rax");
+                _builder.AppendLine("    mov rsi, rbx");
+                _builder.AppendLine("    call strcmp");
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(type));
+        }
+    }
+
+    private void GenerateBinaryAddition(Type type)
+    {
+        if (type is not PrimitiveType primitiveType)
+        {
+            throw new InvalidOperationException("Addition can only be done on primitive types");
+        }
+
+        switch (primitiveType.Kind)
+        {
+            case PrimitiveTypeKind.Int64:
+                _builder.AppendLine("    add rax, rbx");
+                break;
+            case PrimitiveTypeKind.Int32:
+                _builder.AppendLine("    add eax, ebx");
+                break;
+            default:
+                throw new InvalidOperationException($"Invalid type {primitiveType.Kind}");
+        }
+    }
+    
+    private void GenerateBinarySubtraction(Type type)
+    {
+        if (type is not PrimitiveType primitiveType)
+        {
+            throw new InvalidOperationException("Subtraction can only be done on primitive types");
+        }
+
+        switch (primitiveType.Kind)
+        {
+            case PrimitiveTypeKind.Int64:
+                _builder.AppendLine("    sub rax, rbx");
+                break;
+            case PrimitiveTypeKind.Int32:
+                _builder.AppendLine("    sub eax, ebx");
+                break;
+            default:
+                throw new InvalidOperationException($"Invalid type {primitiveType.Kind}");
+        }
+    }
+
+    private void GenerateBinaryMultiplication(Type type)
+    {
+        if (type is not PrimitiveType primitiveType)
+        {
+            throw new InvalidOperationException("Multiplication can only be done on primitive types");
+        }
+
+        switch (primitiveType.Kind)
+        {
+            case PrimitiveTypeKind.Int64:
+                _builder.AppendLine("    imul rbx");
+                break;
+            case PrimitiveTypeKind.Int32:
+                _builder.AppendLine("    imul ebx");
+                break;
+            default:
+                throw new InvalidOperationException($"Invalid type {primitiveType.Kind}");
+        }
+    }
+
+    private void GenerateBinaryDivision(Type type)
+    {
+        if (type is not PrimitiveType primitiveType)
+        {
+            throw new InvalidOperationException("Division can only be done on primitive types");
+        }
+
+        switch (primitiveType.Kind)
+        {
+            case PrimitiveTypeKind.Int64:
+                _builder.AppendLine("    cqo");
+                _builder.AppendLine("    idiv rbx");
+                break;
+            case PrimitiveTypeKind.Int32:
+                _builder.AppendLine("    cdq");
+                _builder.AppendLine("    idiv ebx");
+                break;
+            default:
+                throw new InvalidOperationException($"Invalid type {primitiveType.Kind}");
         }
     }
 
@@ -320,51 +422,38 @@ public class Generator
         switch (literal.Type)
         {
             case DelegateType:
+            {
                 throw new NotImplementedException();
                 break;
+            }
             case StringType:
+            {
                 var ident = $"string{++_stringIndex}";
                 _strings.Add(ident, literal.Literal);
                 _builder.AppendLine($"    mov rax, {ident}");
                 break;
+            }
             case PrimitiveType primitive:
+            {
                 switch (primitive.Kind)
                 {
                     case PrimitiveTypeKind.Bool:
-                    {
-                        var value = literal.Literal == "true" ? 1 : 0;
-                        _builder.AppendLine($"    mov al, {value}");
+                        _builder.AppendLine($"    mov rax, {(bool.Parse(literal.Literal) ? "1" : "0")}");
                         break;
-                    }
                     case PrimitiveTypeKind.Char:
-                        throw new NotImplementedException();
-                        break;
-                    case PrimitiveTypeKind.Int8:
-                    case PrimitiveTypeKind.UInt8:
-                        _builder.AppendLine($"    mov al, {literal.Literal}");
-                        break;
-                    case PrimitiveTypeKind.Int16:
-                    case PrimitiveTypeKind.UInt16:
-                        _builder.AppendLine($"    mov ax, {literal.Literal}");
-                        break;
-                    case PrimitiveTypeKind.Int32:
-                    case PrimitiveTypeKind.UInt32:
-                        _builder.AppendLine($"    mov eax, {literal.Literal}");
+                        _builder.AppendLine($"    mov rax, '{literal.Literal}'");
                         break;
                     case PrimitiveTypeKind.Int64:
-                    case PrimitiveTypeKind.UInt64:
                         _builder.AppendLine($"    mov rax, {literal.Literal}");
                         break;
-                    case PrimitiveTypeKind.Float:
-                        throw new NotImplementedException();
-                        break;
-                    case PrimitiveTypeKind.Double:
-                        throw new NotImplementedException();
+                    case PrimitiveTypeKind.Int32:
+                        _builder.AppendLine($"    mov rax, {literal.Literal}");
                         break;
                     default:
-                        throw new ArgumentOutOfRangeException();
+                        throw new Exception("Cannot convert literal to string");
                 }
                 break;
+            }
             default:
                 throw new ArgumentOutOfRangeException();
         }
@@ -402,7 +491,7 @@ public class Generator
             _builder.AppendLine($"    add rsp, {stackParameters}");
         }
     }
-
+    
     private void GenerateSyscall(Syscall syscall, Func func)
     {
         string[] registers = ["rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"];

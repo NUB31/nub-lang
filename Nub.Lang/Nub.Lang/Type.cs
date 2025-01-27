@@ -17,16 +17,7 @@ public record PrimitiveType : Type
         {
             "bool" => PrimitiveTypeKind.Bool,
             "char" => PrimitiveTypeKind.Char,
-            "int8" => PrimitiveTypeKind.Int8,
-            "uint8" => PrimitiveTypeKind.UInt8,
-            "int16" => PrimitiveTypeKind.Int16,
-            "uint16" => PrimitiveTypeKind.UInt16,
-            "int32" => PrimitiveTypeKind.Int32,
-            "uint32" => PrimitiveTypeKind.UInt32,
             "int64" => PrimitiveTypeKind.Int64,
-            "uint64" => PrimitiveTypeKind.UInt64,
-            "float" => PrimitiveTypeKind.Float,
-            "double" => PrimitiveTypeKind.Double,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         };
         
@@ -42,16 +33,8 @@ public enum PrimitiveTypeKind
 {
     Bool,
     Char,
-    Int8,
-    UInt8,
-    Int16,
-    UInt16,
-    Int32,
-    UInt32,
     Int64,
-    UInt64,
-    Float,
-    Double,
+    Int32,
 }
 
 public record StringType : Type
