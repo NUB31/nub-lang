@@ -43,7 +43,7 @@ public class Generator
         
         var main = _symbolTable.ResolveFunc(Entrypoint, []);
         
-        _builder.AppendLine($"    ; Initialize global variables");
+        _builder.AppendLine("    ; Initialize global variables");
         foreach (var globalVariable in _definitions.OfType<GlobalVariableDefinitionNode>())
         {
             var symbol = _symbolTable.ResolveGlobalVariable(globalVariable.Name);
