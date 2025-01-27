@@ -47,7 +47,7 @@ public class Generator
         foreach (var globalVariable in _definitions.OfType<GlobalVariableDefinitionNode>())
         {
             var symbol = _symbolTable.ResolveGlobalVariable(globalVariable.Name);
-            _builder.AppendLine($"    {symbol.Identifier}: resq 1");
+            _builder.AppendLine($"    {symbol.Identifier}: resq 1 ; {globalVariable.Name}");
         }
 
         _builder.AppendLine();
