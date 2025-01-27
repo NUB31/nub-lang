@@ -154,22 +154,15 @@ public class Parser
                 {
                     case Symbol.Return:
                     {
-                        var value = Optional<ExpressionNode>.Empty();
-                        if (!TryExpectSymbol(Symbol.Semicolon))
-                        {
-                            value = ParseExpression();
-                            ExpectSymbol(Symbol.Semicolon);
-                        }
-
-                        return new ReturnNode(value);
+                        return ParseReturn();
                     }
                     case Symbol.Let:
                     {
-                        var name = ExpectIdentifier().Value;
-                        ExpectSymbol(Symbol.Assign);
-                        var value = ParseExpression();
-                        ExpectSymbol(Symbol.Semicolon);
-                        return new VariableAssignmentNode(name, value);
+                        return ParseVariableAssignment();
+                    }
+                    case Symbol.If:
+                    {
+                        return ParseIf();
                     }
                     default:
                     {
@@ -182,6 +175,44 @@ public class Parser
                 throw new Exception($"Unexpected token type {token.GetType().Name}");
             }
         }
+    }
+
+    private ReturnNode ParseReturn()
+    {
+        var value = Optional<ExpressionNode>.Empty();
+        if (!TryExpectSymbol(Symbol.Semicolon))
+        {
+            value = ParseExpression();
+            ExpectSymbol(Symbol.Semicolon);
+        }
+
+        return new ReturnNode(value);
+    }
+
+    private VariableAssignmentNode ParseVariableAssignment()
+    {
+        var name = ExpectIdentifier().Value;
+        ExpectSymbol(Symbol.Assign);
+        var value = ParseExpression();
+        ExpectSymbol(Symbol.Semicolon);
+        
+        return new VariableAssignmentNode(name, value);
+    }
+
+    private IfNode ParseIf()
+    {
+        var condition = ParseExpression();
+        var body = ParseBlock();
+
+        var elseStatement = Optional<Variant<IfNode, BlockNode>>.Empty();
+        if (TryExpectSymbol(Symbol.Else))
+        {
+            elseStatement = TryExpectSymbol(Symbol.If)
+                ? (Variant<IfNode, BlockNode>)ParseIf()
+                : (Variant<IfNode, BlockNode>)ParseBlock();
+        }
+                        
+        return new IfNode(condition, body, elseStatement);
     }
 
     private ExpressionNode ParseExpression(int precedence = 0)

@@ -12,6 +12,8 @@ public enum Symbol
     Func,
     Return,
     Let,
+    If,
+    Else,
     Semicolon,
     Colon,
     OpenParen,

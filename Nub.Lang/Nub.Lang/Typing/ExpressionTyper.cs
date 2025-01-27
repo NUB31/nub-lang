@@ -82,6 +82,9 @@ public class ExpressionTyper
             case FuncCallStatementNode funcCall:
                 PopulateFuncCallStatement(funcCall);
                 break;
+            case IfNode ifStatement:
+                PopulateIf(ifStatement);
+                break;
             case ReturnNode returnNode:
                 PopulateReturn(returnNode);
                 break;
@@ -104,6 +107,20 @@ public class ExpressionTyper
         foreach (var parameter in funcCall.FuncCall.Parameters)
         {
             PopulateExpression(parameter);
+        }
+    }
+
+    private void PopulateIf(IfNode ifStatement)
+    {
+        PopulateExpression(ifStatement.Condition);
+        PopulateBlock(ifStatement.Body);
+        if (ifStatement.Else.HasValue)
+        {
+            ifStatement.Else.Value.Match
+            (
+                PopulateIf,
+                PopulateBlock
+            );
         }
     }
 

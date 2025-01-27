@@ -21,11 +21,37 @@ public class SymbolTable
     
     public void DefineFunc(ExternFuncDefinitionNode externFuncDefinition)
     {
+        var existing = _funcDefinitions
+            .FirstOrDefault(f => f
+                .SignatureMatches
+                (
+                    externFuncDefinition.Name, 
+                    externFuncDefinition.Parameters.Select(p => p.Type).ToList()
+                ));
+        
+        if (existing != null)
+        {
+            throw new Exception($"Func {existing} is already defined");
+        }
+        
         _funcDefinitions.Add(new ExternFunc(externFuncDefinition.Name, externFuncDefinition.Name, externFuncDefinition.Parameters, externFuncDefinition.ReturnType));
     }
     
     public void DefineFunc(LocalFuncDefinitionNode localFuncDefinition)
     {
+        var existing = _funcDefinitions
+            .FirstOrDefault(f => f
+                .SignatureMatches
+                (
+                    localFuncDefinition.Name, 
+                    localFuncDefinition.Parameters.Select(p => p.Type).ToList()
+                ));
+        
+        if (existing != null)
+        {
+            throw new Exception($"Func {existing} is already defined");
+        }
+        
         var startLabel = $"func{++_labelIndex}";
         var endLabel = $"func_end{_labelIndex}";
         _funcDefinitions.Add(new LocalFunc(localFuncDefinition.Name, startLabel, endLabel, localFuncDefinition.Parameters, localFuncDefinition.ReturnType, _globalVariables.Concat<Variable>(ResolveFuncVariables(localFuncDefinition)).ToList()));
@@ -56,7 +82,7 @@ public class SymbolTable
     
     public Func ResolveFunc(string name, IReadOnlyCollection<Type> parameterTypes)
     {
-        var func = _funcDefinitions.FirstOrDefault(f => f.Name == name && f.Parameters.Count == parameterTypes.Count && f.Parameters.Where((p, i) => p.Type == parameterTypes.ElementAt(i)).Count() == parameterTypes.Count);
+        var func = _funcDefinitions.FirstOrDefault(f => f.SignatureMatches(name, parameterTypes));
         if (func == null)
         {
             throw new Exception($"Func {name}({string.Join(", ", parameterTypes)}) is not defined");
@@ -115,7 +141,7 @@ public class GlobalVariable(string name, Type type, string identifier) : Variabl
 
 public abstract class Func
 {
-    public Func(string name, string startLabel, IReadOnlyCollection<FuncParameter> parameters, Optional<Type> returnType)
+    protected Func(string name, string startLabel, IReadOnlyCollection<FuncParameter> parameters, Optional<Type> returnType)
     {
         Name = name;
         Parameters = parameters;
@@ -127,6 +153,13 @@ public abstract class Func
     public string StartLabel { get; }
     public IReadOnlyCollection<FuncParameter> Parameters { get; }
     public Optional<Type> ReturnType { get; }
+
+    public bool SignatureMatches(string name, IReadOnlyCollection<Type> parameterTypes)
+    {
+        return Name == name 
+               && Parameters.Count == parameterTypes.Count 
+               && Parameters.Where((p, i) => p.Type == parameterTypes.ElementAt(i)).Count() == parameterTypes.Count;
+    }
 }
 
 public class ExternFunc : Func

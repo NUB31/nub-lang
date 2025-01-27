@@ -13,6 +13,7 @@ public class Generator
     private readonly Dictionary<string, string> _strings;
     private readonly HashSet<string> _externFuncDefinitions;
     private int _stringIndex;
+    private int _labelIndex;
     
     public Generator(IReadOnlyCollection<DefinitionNode> definitions)
     {
@@ -144,6 +145,9 @@ public class Generator
             case FuncCallStatementNode funcCallStatement:
                 GenerateFuncCall(funcCallStatement.FuncCall, func);
                 break;
+            case IfNode ifStatement:
+                GenerateIf(ifStatement, func);
+                break;
             case ReturnNode @return:
                 GenerateReturn(@return, func);
                 break;
@@ -158,6 +162,33 @@ public class Generator
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(statement));
+        }
+    }
+
+    private void GenerateIf(IfNode ifStatement, LocalFunc func)
+    {
+        var endLabel = CreateLabel();
+        GenerateIf(ifStatement, endLabel, func);
+        _builder.AppendLine($"{endLabel}:");
+    }
+    
+    private void GenerateIf(IfNode ifStatement, string endLabel, LocalFunc func)
+    {
+        var nextLabel = CreateLabel();
+        GenerateExpression(ifStatement.Condition, func);
+        _builder.AppendLine("    cmp rax, 0");
+        _builder.AppendLine($"    je {nextLabel}");
+        GenerateBlock(ifStatement.Body, func);
+        _builder.AppendLine($"    jmp {endLabel}");
+        _builder.AppendLine($"{nextLabel}:");
+        
+        if (ifStatement.Else.HasValue)
+        {
+            ifStatement.Else.Value.Match
+            (
+                elseIfStatement => GenerateIf(elseIfStatement, endLabel, func),
+                elseStatement => GenerateBlock(elseStatement, func)
+            );
         }
     }
 
@@ -473,5 +504,10 @@ public class Generator
         }
                 
         _builder.AppendLine("    syscall");
+    }
+
+    private string CreateLabel()
+    {
+        return $"label{++_labelIndex}";
     }
 }

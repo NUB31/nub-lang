@@ -10,6 +10,8 @@ public class Lexer
         ["extern"] = Symbol.Extern,
         ["return"] = Symbol.Return,
         ["let"] = Symbol.Let,
+        ["if"] = Symbol.If,
+        ["else"] = Symbol.Else,
     };
 
     private static readonly Dictionary<char[], Symbol> Chians = new()
@@ -79,6 +81,11 @@ public class Lexer
             if (Keywords.TryGetValue(buffer, out var keywordSymbol))
             {
                 return new SymbolToken(keywordSymbol);
+            }
+            
+            if (buffer is "true" or "false")
+            {
+                return new LiteralToken(new PrimitiveType(PrimitiveTypeKind.Bool), buffer);
             }
 
             return new IdentifierToken(buffer);
