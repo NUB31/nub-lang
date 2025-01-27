@@ -1,5 +1,4 @@
-﻿using Nub.Lang.Branching;
-using Nub.Lang.Generation;
+﻿using Nub.Lang.Generation;
 using Nub.Lang.Lexing;
 using Nub.Lang.Parsing;
 using Nub.Lang.Typing;
@@ -14,9 +13,6 @@ var definitions = parser.Parse();
 
 var typer = new ExpressionTyper(definitions);
 typer.Populate();
-
-var branchChecker = new BranchChecker(definitions);
-branchChecker.Check();
 
 var generator = new Generator(definitions);
 var asm = generator.Generate();
