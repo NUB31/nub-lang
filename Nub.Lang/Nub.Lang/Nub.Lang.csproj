@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Nub.Lib" Version="1.0.0" />
+      <PackageReference Include="Nub.Core" Version="1.0.0" />
     </ItemGroup>
 
 </Project>

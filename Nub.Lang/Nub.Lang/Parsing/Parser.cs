@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Nub.Lang.Lexing;
-using Nub.Lib;
+using Nub.Core;
 
 namespace Nub.Lang.Parsing;
 
