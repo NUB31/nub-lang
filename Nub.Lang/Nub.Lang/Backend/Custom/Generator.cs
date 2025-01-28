@@ -40,9 +40,9 @@ public class Generator
     {
         _builder.AppendLine("global _start");
         
-        foreach (var externFuncDefinition in _definitions.OfType<ExternFuncDefinitionNode>().Select(e => e.Name))
+        foreach (var externFuncDefinition in _definitions.OfType<ExternFuncDefinitionNode>())
         {
-            _builder.AppendLine($"extern {externFuncDefinition}");
+            _builder.AppendLine($"extern {externFuncDefinition.Name}");
         }
         
         _builder.AppendLine();
