@@ -1,0 +1,3 @@
+﻿namespace core;
+
+extern func strlen(msg: String): int64;
