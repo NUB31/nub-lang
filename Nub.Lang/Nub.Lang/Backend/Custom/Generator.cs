@@ -83,7 +83,7 @@ public class Generator
         foreach (var funcDefinition in _definitions.OfType<LocalFuncDefinitionNode>())
         {
             _builder.AppendLine();
-            _builder.AppendLine(GenerateFuncDefinition(funcDefinition));
+            GenerateFuncDefinition(funcDefinition);
         }
 
         _builder.AppendLine("""
@@ -117,7 +117,7 @@ public class Generator
         return _builder.ToString();
     }
 
-    private string GenerateFuncDefinition(LocalFuncDefinitionNode node)
+    private void GenerateFuncDefinition(LocalFuncDefinitionNode node)
     {
         var func = _symbolTable.ResolveLocalFunc(node.Name, node.Parameters.Select(p => p.Type).ToList());
         
@@ -153,10 +153,6 @@ public class Generator
         _builder.AppendLine("    mov rsp, rbp");
         _builder.AppendLine("    pop rbp");
         _builder.AppendLine("    ret");
-
-        var result = _builder.ToString();
-        _builder.Clear();
-        return result;
     }
     
     private void GenerateBlock(BlockNode block, LocalFunc func)
