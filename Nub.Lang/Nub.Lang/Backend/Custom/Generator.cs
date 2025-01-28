@@ -10,12 +10,14 @@ public class Generator
     private readonly List<DefinitionNode> _definitions;
     private readonly SymbolTable _symbolTable;
     private readonly StringBuilder _builder;
+    private readonly LabelFactory _labelFactory;
     
     public Generator(IReadOnlyCollection<DefinitionNode> definitions)
     {
         _definitions = [];
         _builder = new StringBuilder();
-        _symbolTable = new SymbolTable();
+        _labelFactory = new LabelFactory();
+        _symbolTable = new SymbolTable(_labelFactory);
 
         foreach (var globalVariableDefinition in definitions.OfType<GlobalVariableDefinitionNode>())
         {
@@ -194,14 +196,14 @@ public class Generator
 
     private void GenerateIf(IfNode ifStatement, LocalFunc func)
     {
-        var endLabel = _symbolTable.LabelFactory.Create();
+        var endLabel = _labelFactory.Create();
         GenerateIf(ifStatement, endLabel, func);
         _builder.AppendLine($"{endLabel}:");
     }
     
     private void GenerateIf(IfNode ifStatement, string endLabel, LocalFunc func)
     {
-        var nextLabel = _symbolTable.LabelFactory.Create();
+        var nextLabel = _labelFactory.Create();
         GenerateExpression(ifStatement.Condition, func);
         _builder.AppendLine("    cmp rax, 0");
         _builder.AppendLine($"    je {nextLabel}");
@@ -455,9 +457,8 @@ public class Generator
             }
             case StringType:
             {
-                var ident = _symbolTable.LabelFactory.Create();
-                _symbolTable.DefineString(ident, literal.Literal);
-                _builder.AppendLine($"    mov rax, {ident}");
+                var label = _symbolTable.DefineString(literal.Literal);
+                _builder.AppendLine($"    mov rax, {label}");
                 break;
             }
             case PrimitiveType primitive:

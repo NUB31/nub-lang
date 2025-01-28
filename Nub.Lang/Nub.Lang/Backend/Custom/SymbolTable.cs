@@ -7,18 +7,25 @@ public class SymbolTable
 {
     private readonly List<Func> _funcDefinitions = [];
     private readonly List<GlobalVariable> _globalVariables = [];
-    public LabelFactory LabelFactory { get; } = new();
+    private LabelFactory _labelFactory;
     
     public readonly Dictionary<string, string> Strings = [];
 
-    public void DefineString(string label, string value)
+    public SymbolTable(LabelFactory labelFactory)
     {
+        _labelFactory = labelFactory;
+    }
+    
+    public string DefineString(string value)
+    {
+        var label = _labelFactory.Create();
         Strings.Add(label, value);
+        return label;
     }
     
     public void DefineGlobalVariable(GlobalVariableDefinitionNode globalVariableDefinition)
     {
-        var identifier =  LabelFactory.Create();
+        var identifier =  _labelFactory.Create();
         _globalVariables.Add(new GlobalVariable(globalVariableDefinition.Name, globalVariableDefinition.Value.Type, identifier));
     }
     
@@ -55,8 +62,8 @@ public class SymbolTable
             throw new Exception($"Func {existing} is already defined");
         }
         
-        var startLabel = LabelFactory.Create();
-        var endLabel = LabelFactory.Create();
+        var startLabel = _labelFactory.Create();
+        var endLabel = _labelFactory.Create();
         _funcDefinitions.Add(new LocalFunc(localFuncDefinition.Name, startLabel, endLabel, localFuncDefinition.Parameters, localFuncDefinition.ReturnType, _globalVariables.Concat<Variable>(ResolveFuncVariables(localFuncDefinition)).ToList()));
     }
     
@@ -212,11 +219,4 @@ public class LocalFunc : Func
     }
     
     public override string ToString() => $"{Name}({string.Join(", ", Parameters.Select(p => p.ToString()))}){(ReturnType.HasValue ? ": " + ReturnType.Value : "")}";
-}
-
-public class LabelFactory
-{
-    private int _index;
-    
-    public string Create() => $"label{++_index}";
 }
