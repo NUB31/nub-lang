@@ -7,7 +7,6 @@ public class SymbolTable
 {
     private readonly List<Func> _funcDefinitions = [];
     private readonly List<GlobalVariable> _globalVariables = [];
-    private int _globalVariableIndex;
     public LabelFactory LabelFactory { get; } = new();
     
     public readonly Dictionary<string, string> Strings = [];
@@ -19,7 +18,7 @@ public class SymbolTable
     
     public void DefineGlobalVariable(GlobalVariableDefinitionNode globalVariableDefinition)
     {
-        var identifier = $"variable{++_globalVariableIndex}";
+        var identifier =  LabelFactory.Create();
         _globalVariables.Add(new GlobalVariable(globalVariableDefinition.Name, globalVariableDefinition.Value.Type, identifier));
     }
     
