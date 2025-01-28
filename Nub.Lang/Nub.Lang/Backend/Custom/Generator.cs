@@ -428,7 +428,6 @@ public class Generator
     private void GenerateIdentifier(IdentifierNode identifier, LocalFunc func)
     {
         var variable = func.ResolveVariable(identifier.Identifier);
-
         switch (variable)
         {
             case GlobalVariable globalVariable:
