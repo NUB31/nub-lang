@@ -1,4 +1,4 @@
-namespace core;
+include "core/string.nub"
 
 let SYS_WRITE = 1;
 let STD_IN = 0;

@@ -3,220 +3,18 @@ using Nub.Lang.Frontend.Parsing;
 
 namespace Nub.Lang.Backend.Custom;
 
-public class CustomGenerator
+public class ExpressionGenerator
 {
-    private const string Entrypoint = "main";
-    
-    private readonly IReadOnlyCollection<DefinitionNode> _definitions;
-    private readonly SymbolTable _symbolTable;
     private readonly StringBuilder _builder;
-    private readonly Dictionary<string, string> _strings;
-    private readonly HashSet<string> _externFuncDefinitions;
-    private int _stringIndex;
-    private int _labelIndex;
-    
-    public CustomGenerator(IReadOnlyCollection<DefinitionNode> definitions)
+    private readonly SymbolTable _symbolTable;
+
+    public ExpressionGenerator(SymbolTable symbolTable, StringBuilder builder)
     {
-        _strings = [];
-        _definitions = definitions;
-        _builder = new StringBuilder();
-        _externFuncDefinitions = ["strcmp"];
-        _symbolTable = new SymbolTable(definitions.OfType<GlobalVariableDefinitionNode>().ToList());
-        
-        foreach (var funcDefinitionNode in definitions.OfType<ExternFuncDefinitionNode>())
-        {
-            _symbolTable.DefineFunc(funcDefinitionNode);
-            _externFuncDefinitions.Add(_symbolTable.ResolveExternFunc(funcDefinitionNode.Name, funcDefinitionNode.Parameters.Select(p => p.Type).ToList()).StartLabel);
-        }
-        foreach (var funcDefinitionNode in definitions.OfType<LocalFuncDefinitionNode>())
-        {
-            _symbolTable.DefineFunc(funcDefinitionNode);
-        }
-    }
-
-    public string Generate()
-    {
-        _builder.AppendLine("global _start");
-        
-        foreach (var externFuncDefinition in _externFuncDefinitions)
-        {
-            _builder.AppendLine($"extern {externFuncDefinition}");
-        }
-        
-        _builder.AppendLine();
-        _builder.AppendLine("section .bss");
-        foreach (var globalVariable in _definitions.OfType<GlobalVariableDefinitionNode>())
-        {
-            var symbol = _symbolTable.ResolveGlobalVariable(globalVariable.Name);
-            _builder.AppendLine($"    {symbol.Identifier}: resq 1 ; {globalVariable.Name}");
-        }
-
-        _builder.AppendLine();
-        _builder.AppendLine("section .text");
-        _builder.AppendLine("_start:");
-        
-        var main = _symbolTable.ResolveLocalFunc(Entrypoint, []);
-        
-        _builder.AppendLine("    ; Initialize global variables");
-        foreach (var globalVariable in _definitions.OfType<GlobalVariableDefinitionNode>())
-        {
-            var symbol = _symbolTable.ResolveGlobalVariable(globalVariable.Name);
-            GenerateExpression(globalVariable.Value, main);
-            _builder.AppendLine($"    mov [{symbol.Identifier}], rax");
-        }
-
-        _builder.AppendLine();
-        _builder.AppendLine($"    ; Call entrypoint {Entrypoint}");
-        _builder.AppendLine($"    call {main.StartLabel}");
-
-        _builder.AppendLine();
-        _builder.AppendLine(main.ReturnType.HasValue
-            ? "    mov rdi, rax ; Exit with return value of entrypoint"
-            : "    mov rdi, 0 ; Exit with default status code 0");
-        _builder.AppendLine("    mov rax, 60");
-        _builder.AppendLine("    syscall");
-
-        foreach (var funcDefinition in _definitions.OfType<LocalFuncDefinitionNode>())
-        {
-            _builder.AppendLine();
-            GenerateFuncDefinition(funcDefinition);
-        }
-        
-        _builder.AppendLine();
-        _builder.AppendLine("section .data");
-        foreach (var str in _strings)
-        {
-            _builder.AppendLine($"{str.Key}: db `{str.Value}`, 0");
-        }
-        
-        return _builder.ToString();
-    }
-
-    private void GenerateFuncDefinition(LocalFuncDefinitionNode node)
-    {
-        var func = _symbolTable.ResolveLocalFunc(node.Name, node.Parameters.Select(p => p.Type).ToList());
-        
-        _builder.AppendLine($"; {node.ToString()}");
-        _builder.AppendLine($"{func.StartLabel}:");
-        _builder.AppendLine("    ; Set up stack frame");
-        _builder.AppendLine("    push rbp");
-        _builder.AppendLine("    mov rbp, rsp");
-        _builder.AppendLine($"    sub rsp, {func.StackAllocation}");
-        
-        string[] registers = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
-        
-        _builder.AppendLine("    ; Body");
-        for (var i = 0; i < func.Parameters.Count; i++)
-        {
-            var parameter = func.ResolveLocalVariable(func.Parameters.ElementAt(i).Name);
-            if (i < registers.Length)
-            {
-                _builder.AppendLine($"    mov [rbp - {parameter.Offset}], {registers[i]}");
-            }
-            else
-            {
-                var stackOffset = 16 + (i - registers.Length) * 8;
-                _builder.AppendLine($"    mov rax, [rbp + {stackOffset}]");
-                _builder.AppendLine($"    mov [rbp - {parameter.Offset}], rax");
-            }
-        }
-        
-        GenerateBlock(node.Body, func);
-
-        _builder.AppendLine($"{func.EndLabel}:");
-        _builder.AppendLine("    ; Clean up stack frame");
-        _builder.AppendLine("    mov rsp, rbp");
-        _builder.AppendLine("    pop rbp");
-        _builder.AppendLine("    ret");
+        _symbolTable = symbolTable;
+        _builder = builder;
     }
     
-    private void GenerateBlock(BlockNode block, LocalFunc func)
-    {
-        foreach (var statement in block.Statements)
-        {
-            GenerateStatement(statement, func);
-        }
-    }
-
-    private void GenerateStatement(StatementNode statement, LocalFunc func)
-    {
-        switch (statement)
-        {
-            case FuncCallStatementNode funcCallStatement:
-                GenerateFuncCall(funcCallStatement.FuncCall, func);
-                break;
-            case IfNode ifStatement:
-                GenerateIf(ifStatement, func);
-                break;
-            case ReturnNode @return:
-                GenerateReturn(@return, func);
-                break;
-            case SyscallStatementNode syscallStatement:
-                GenerateSyscall(syscallStatement.Syscall, func);
-                break;
-            case VariableAssignmentNode variableAssignment:
-                GenerateVariableAssignment(variableAssignment, func);
-                break;
-            case VariableReassignmentNode variableReassignment:
-                GenerateVariableReassignment(variableReassignment, func);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(statement));
-        }
-    }
-
-    private void GenerateIf(IfNode ifStatement, LocalFunc func)
-    {
-        var endLabel = CreateLabel();
-        GenerateIf(ifStatement, endLabel, func);
-        _builder.AppendLine($"{endLabel}:");
-    }
-    
-    private void GenerateIf(IfNode ifStatement, string endLabel, LocalFunc func)
-    {
-        var nextLabel = CreateLabel();
-        GenerateExpression(ifStatement.Condition, func);
-        _builder.AppendLine("    cmp rax, 0");
-        _builder.AppendLine($"    je {nextLabel}");
-        GenerateBlock(ifStatement.Body, func);
-        _builder.AppendLine($"    jmp {endLabel}");
-        _builder.AppendLine($"{nextLabel}:");
-        
-        if (ifStatement.Else.HasValue)
-        {
-            ifStatement.Else.Value.Match
-            (
-                elseIfStatement => GenerateIf(elseIfStatement, endLabel, func),
-                elseStatement => GenerateBlock(elseStatement, func)
-            );
-        }
-    }
-
-    private void GenerateReturn(ReturnNode @return, LocalFunc func)
-    {
-        if (@return.Value.HasValue)
-        {
-            GenerateExpression(@return.Value.Value, func);
-        }
-
-        _builder.AppendLine($"    jmp {func.EndLabel}");
-    }
-
-    private void GenerateVariableAssignment(VariableAssignmentNode variableAssignment, LocalFunc func)
-    {
-        var variable = func.ResolveLocalVariable(variableAssignment.Name);
-        GenerateExpression(variableAssignment.Value, func);
-        _builder.AppendLine($"    mov [rbp - {variable.Offset}], rax");
-    }
-
-    private void GenerateVariableReassignment(VariableReassignmentNode variableReassignment, LocalFunc func)
-    {
-        var variable = func.ResolveLocalVariable(variableReassignment.Name);
-        GenerateExpression(variableReassignment.Value, func);
-        _builder.AppendLine($"    mov [rbp - {variable.Offset}], rax");
-    }
-
-    private void GenerateExpression(ExpressionNode expression, LocalFunc func)
+    public void GenerateExpression(ExpressionNode expression, LocalFunc func)
     {
         switch (expression)
         {
@@ -431,8 +229,8 @@ public class CustomGenerator
             }
             case StringType:
             {
-                var ident = $"string{++_stringIndex}";
-                _strings.Add(ident, literal.Literal);
+                var ident = _symbolTable.LabelFactory.Create();
+                _symbolTable.DefineString(ident, literal.Literal);
                 _builder.AppendLine($"    mov rax, {ident}");
                 break;
             }
@@ -462,7 +260,7 @@ public class CustomGenerator
         }
     }
 
-    private void GenerateFuncCall(FuncCall funcCall, LocalFunc func)
+    public void GenerateFuncCall(FuncCall funcCall, LocalFunc func)
     {
         var symbol = _symbolTable.ResolveFunc(funcCall.Name, funcCall.Parameters.Select(p => p.Type).ToList());
         string[] registers = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
@@ -487,8 +285,8 @@ public class CustomGenerator
             _builder.AppendLine($"    add rsp, {stackParameters}");
         }
     }
-    
-    private void GenerateSyscall(Syscall syscall, LocalFunc func)
+
+    public void GenerateSyscall(Syscall syscall, LocalFunc func)
     {
         string[] registers = ["rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"];
 
@@ -504,10 +302,5 @@ public class CustomGenerator
         }
                 
         _builder.AppendLine("    syscall");
-    }
-
-    private string CreateLabel()
-    {
-        return $"label{++_labelIndex}";
     }
 }

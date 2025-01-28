@@ -14,16 +14,30 @@ public class Parser
         _tokens = tokens.ToArray();
     }
 
-    public IReadOnlyCollection<DefinitionNode> Parse()
+    public FileNode ParseFile(string relativePath)
     {
         _index = 0;
         List<DefinitionNode> definitions = [];
+        List<string> includes = [];
+
+        while (TryExpectSymbol(Symbol.Include))
+        {
+            var name = ExpectLiteral();
+            if (name.Type is not StringType)
+            {
+                throw new Exception("Using statements must have a string literal value");
+            }
+
+            TryExpectSymbol(Symbol.Semicolon);
+            includes.Add(name.Value);
+        }
+        
         while (Peek().HasValue)
         {
             definitions.Add(ParseDefinition());
         }
 
-        return definitions;
+        return new FileNode(includes, definitions);
     }
 
     private DefinitionNode ParseDefinition()

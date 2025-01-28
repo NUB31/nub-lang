@@ -13,25 +13,39 @@ public class Func(string name, IReadOnlyCollection<FuncParameter> parameters, Op
 
 public class ExpressionTyper
 {
-    private readonly IReadOnlyCollection<Func> _functions;
-    private readonly IReadOnlyCollection<GlobalVariableDefinitionNode> _variableDefinitions;
+    private readonly List<Func> _functions;
+    private readonly List<GlobalVariableDefinitionNode> _variableDefinitions;
     private readonly Stack<Variable> _variables;
 
-    public ExpressionTyper(IReadOnlyCollection<DefinitionNode> definitions)
+    public ExpressionTyper(FileNode file, Dictionary<string, FileNode> deps)
     {
-        var functions = definitions
+        _variables = new Stack<Variable>();
+        _functions = [];
+        _variableDefinitions = [];
+        
+        ResolveFunctions(file, deps);
+    }
+
+    private void ResolveFunctions(FileNode file, Dictionary<string, FileNode> deps)
+    {
+        var functions = file.Definitions
             .OfType<LocalFuncDefinitionNode>()
             .Select(f => new Func(f.Name, f.Parameters, f.Body, f.ReturnType))
             .ToList();
         
-        var externFunctions = definitions
+        var externFunctions = file.Definitions
             .OfType<ExternFuncDefinitionNode>()
             .Select(f => new Func(f.Name, f.Parameters, Optional<BlockNode>.Empty(), f.ReturnType))
             .ToList();
         
-        _functions = functions.Concat(externFunctions).ToList();
-        _variableDefinitions = definitions.OfType<GlobalVariableDefinitionNode>().ToList();
-        _variables = new Stack<Variable>();
+        _functions.AddRange(functions);
+        _functions.AddRange(externFunctions);
+        _variableDefinitions.AddRange(file.Definitions.OfType<GlobalVariableDefinitionNode>());
+        
+        foreach (var include in file.Includes)
+        {
+            ResolveFunctions(deps[include], deps);
+        }
     }
 
     public void Populate()

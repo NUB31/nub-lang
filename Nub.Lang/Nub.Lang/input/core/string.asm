@@ -1,4 +1,5 @@
 global strlen
+global strcmp
 section .text
 
 strcmp:
@@ -17,4 +18,15 @@ strcmp:
     ret
 .equal:
     mov rax, 1
+    ret
+
+strlen:
+    xor rax, rax
+.loop:
+    cmp byte [rdi], 0
+    jz .done
+    inc rax
+    inc rdi
+    jmp .loop
+.done:
     ret

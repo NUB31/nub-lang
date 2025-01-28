@@ -9,6 +9,7 @@ public class Lexer
         ["func"] = Symbol.Func,
         ["extern"] = Symbol.Extern,
         ["return"] = Symbol.Return,
+        ["include"] = Symbol.Include,
         ["let"] = Symbol.Let,
         ["if"] = Symbol.If,
         ["else"] = Symbol.Else,

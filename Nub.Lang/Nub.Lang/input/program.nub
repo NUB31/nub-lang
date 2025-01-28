@@ -1,17 +1,16 @@
-namespace program;
-using core;
+include "core/print.nub";
 
 func main() {
-    core::println("test");
-    core::println(true);
+    println("test");
+    println(true);
     
-    if true {
-        core::println("1");
+    if strlen("1") == 1 {
+        println("1");
     } else if false {
-        core::println("2");
+        println("2");
     } else if true {
-        core::println("3");
+        println("3");
     } else {
-        core::println("4");
+        println("4");
     }
 }

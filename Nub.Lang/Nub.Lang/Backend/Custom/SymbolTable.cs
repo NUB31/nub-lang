@@ -7,16 +7,20 @@ public class SymbolTable
 {
     private readonly List<Func> _funcDefinitions = [];
     private readonly List<GlobalVariable> _globalVariables = [];
-    private int _labelIndex;
+    private int _globalVariableIndex;
+    public LabelFactory LabelFactory { get; } = new();
+    
+    public readonly Dictionary<string, string> Strings = [];
 
-    public SymbolTable(IReadOnlyCollection<GlobalVariableDefinitionNode> globalVariableDefinitions)
+    public void DefineString(string label, string value)
     {
-        var globalVariableIndex = 0;
-        foreach (var globalVariable in globalVariableDefinitions)
-        {
-            var identifier = $"variable{++globalVariableIndex}";
-            _globalVariables.Add(new GlobalVariable(globalVariable.Name, globalVariable.Value.Type, identifier));
-        }
+        Strings.Add(label, value);
+    }
+    
+    public void DefineGlobalVariable(GlobalVariableDefinitionNode globalVariableDefinition)
+    {
+        var identifier = $"variable{++_globalVariableIndex}";
+        _globalVariables.Add(new GlobalVariable(globalVariableDefinition.Name, globalVariableDefinition.Value.Type, identifier));
     }
     
     public void DefineFunc(ExternFuncDefinitionNode externFuncDefinition)
@@ -52,8 +56,8 @@ public class SymbolTable
             throw new Exception($"Func {existing} is already defined");
         }
         
-        var startLabel = $"func{++_labelIndex}";
-        var endLabel = $"func_end{_labelIndex}";
+        var startLabel = LabelFactory.Create();
+        var endLabel = LabelFactory.Create();
         _funcDefinitions.Add(new LocalFunc(localFuncDefinition.Name, startLabel, endLabel, localFuncDefinition.Parameters, localFuncDefinition.ReturnType, _globalVariables.Concat<Variable>(ResolveFuncVariables(localFuncDefinition)).ToList()));
     }
     
@@ -209,4 +213,11 @@ public class LocalFunc : Func
     }
     
     public override string ToString() => $"{Name}({string.Join(", ", Parameters.Select(p => p.ToString()))}){(ReturnType.HasValue ? ": " + ReturnType.Value : "")}";
+}
+
+public class LabelFactory
+{
+    private int _index;
+    
+    public string Create() => $"label{++_index}";
 }

@@ -1,3 +1,2 @@
-namespace core;
-
+﻿extern func strlen(msg: String): int64;
 extern func strcmp(a: String, b: String): bool;

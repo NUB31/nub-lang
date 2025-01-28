@@ -1,20 +1,46 @@
-﻿using Nub.Lang.Backend.Custom;
+﻿using System.Diagnostics;
+using Nub.Lang.Backend.Custom;
 using Nub.Lang.Frontend.Lexing;
 using Nub.Lang.Frontend.Parsing;
 using Nub.Lang.Frontend.Typing;
 
-var src = File.ReadAllText(args[0]);
+var rootPath = Path.GetDirectoryName(args[0]);
+var rootFileName = Path.GetFileName(args[0]);
+Debug.Assert(rootPath != null && rootFileName != null);
 
-var lexer = new Lexer(src);
-var tokens = lexer.Lex();
+Dictionary<string, FileNode> files = [];
 
-var parser = new Parser(tokens);
-var definitions = parser.Parse();
+Queue<string> queue = [];
+queue.Enqueue(rootFileName);
 
-var typer = new ExpressionTyper(definitions);
-typer.Populate();
+while (queue.TryDequeue(out var path))
+{
+    var src = File.ReadAllText(Path.Combine(rootPath, path));
+    
+    var lexer = new Lexer(src);
+    var tokens = lexer.Lex();
+    
+    var parser = new Parser(tokens);
+    var file = parser.ParseFile(path);
+    files[path] = file;
 
-var generator = new CustomGenerator(definitions);
+    foreach (var include in file.Includes)
+    {
+        if (!files.ContainsKey(include))
+        {
+            queue.Enqueue(include);
+        }
+    }
+}
+
+foreach (var file in files)
+{
+    var typer = new ExpressionTyper(file.Value, files);
+    typer.Populate();
+}
+
+
+var generator = new Generator(files[rootFileName], files);
 var asm = generator.Generate();
 
 Console.WriteLine(asm);
