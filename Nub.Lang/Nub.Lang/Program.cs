@@ -39,8 +39,7 @@ foreach (var file in files)
     typer.Populate();
 }
 
-
-var generator = new Generator(files[rootFileName], files);
+var generator = new Generator(files.Values.SelectMany(f => f.Definitions).ToList());
 var asm = generator.Generate();
 
 Console.WriteLine(asm);

@@ -10,56 +10,33 @@ public class Generator
     private readonly List<DefinitionNode> _definitions;
     private readonly SymbolTable _symbolTable;
     private readonly StringBuilder _builder;
-    private readonly HashSet<string> _externFuncDefinitions;
     private readonly ExpressionGenerator _expressionGenerator;
     private readonly FuncGenerator _funcGenerator;
     
-    public Generator(FileNode file, Dictionary<string, FileNode> deps)
+    public Generator(IReadOnlyCollection<DefinitionNode> definitions)
     {
         _definitions = [];
         _builder = new StringBuilder();
-        _externFuncDefinitions = ["strcmp"];
         _symbolTable = new SymbolTable();
         _expressionGenerator = new ExpressionGenerator(_symbolTable, _builder);
         _funcGenerator = new FuncGenerator(_symbolTable, _builder, _expressionGenerator);
-        
-        ResolveGlobalVariables(file, deps);
-        ResolveDefinitions(file, deps);
-    }
 
-    private void ResolveGlobalVariables(FileNode file, Dictionary<string, FileNode> deps)
-    {
-        
-        foreach (var globalVariableDefinition in file.Definitions.OfType<GlobalVariableDefinitionNode>())
+        foreach (var globalVariableDefinition in definitions.OfType<GlobalVariableDefinitionNode>())
         {
             _symbolTable.DefineGlobalVariable(globalVariableDefinition);
             _definitions.Add(globalVariableDefinition);
         }
         
-        foreach (var include in file.Includes)
+        foreach (var funcDefinitionNode in definitions.OfType<ExternFuncDefinitionNode>())
         {
-            ResolveGlobalVariables(deps[include], deps);
+            _symbolTable.DefineFunc(funcDefinitionNode);
+            _definitions.Add(funcDefinitionNode);
         }
-    }
     
-    private void ResolveDefinitions(FileNode file, Dictionary<string, FileNode> deps)
-    {
-        foreach (var funcDefinitionNode in file.Definitions.OfType<ExternFuncDefinitionNode>())
+        foreach (var funcDefinitionNode in definitions.OfType<LocalFuncDefinitionNode>())
         {
             _symbolTable.DefineFunc(funcDefinitionNode);
             _definitions.Add(funcDefinitionNode);
-            _externFuncDefinitions.Add(_symbolTable.ResolveExternFunc(funcDefinitionNode.Name, funcDefinitionNode.Parameters.Select(p => p.Type).ToList()).StartLabel);
-        }
-        
-        foreach (var funcDefinitionNode in file.Definitions.OfType<LocalFuncDefinitionNode>())
-        {
-            _symbolTable.DefineFunc(funcDefinitionNode);
-            _definitions.Add(funcDefinitionNode);
-        }
-        
-        foreach (var include in file.Includes)
-        {
-            ResolveDefinitions(deps[include], deps);
         }
     }
 
@@ -67,7 +44,7 @@ public class Generator
     {
         _builder.AppendLine("global _start");
         
-        foreach (var externFuncDefinition in _externFuncDefinitions)
+        foreach (var externFuncDefinition in _definitions.OfType<ExternFuncDefinitionNode>().Select(e => e.Name))
         {
             _builder.AppendLine($"extern {externFuncDefinition}");
         }
@@ -110,6 +87,27 @@ public class Generator
             _builder.AppendLine();
             _builder.AppendLine(_funcGenerator.GenerateFuncDefinition(funcDefinition));
         }
+
+        _builder.AppendLine("""
+                            
+                            strcmp:
+                                xor rdx, rdx
+                            .loop:
+                                mov al, [rsi + rdx]
+                                mov bl, [rdi + rdx]
+                                inc rdx
+                                cmp al, bl
+                                jne .not_equal
+                                cmp al, 0
+                                je .equal
+                                jmp .loop
+                            .not_equal:
+                                mov rax, 0
+                                ret
+                            .equal:
+                                mov rax, 1
+                                ret
+                            """);
         
         _builder.AppendLine();
         _builder.AppendLine("section .data");
