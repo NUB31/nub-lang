@@ -10,10 +10,38 @@ internal static class Program
     private static readonly Lexer Lexer = new();
     private static readonly Parser Parser = new();
     
-    public static void Main(string[] args)
+    public static int Main(string[] args)
     {
-        var modules = RunFrontend(args[0]);
+        if (args.Length != 2)
+        {
+            Console.WriteLine("Usage:       nub <input-dir> <output-file>");
+            Console.WriteLine("Example:     nub src out.asm");
+            return 1;
+        }
+        
+        var input = args[0];
+        var output = args[1];
+        
+        if (!Directory.Exists(input))
+        {
+            Console.WriteLine($"Error: Input directory '{input}' does not exist.");
+            return 1;
+        }
+        
+        var outputDir = Path.GetDirectoryName(output);
+        if (outputDir == null || !Directory.Exists(outputDir))
+        {
+            Console.WriteLine($"Error: Output directory '{outputDir}' does not exist.");
+            return 1;
+        }
 
+        if (string.IsNullOrWhiteSpace(Path.GetFileName(output)))
+        {
+            Console.WriteLine("Error: Output path must specify a file, not a directory.");
+            return 1;
+        }
+
+        var modules = RunFrontend(input);
         var definitions = modules.SelectMany(f => f.Definitions).ToArray();
 
         var typer = new ExpressionTyper(definitions);
@@ -22,9 +50,8 @@ internal static class Program
         var generator = new Generator(definitions);
         var asm = generator.Generate();
 
-        Console.WriteLine(asm);
-
-        File.WriteAllText(args[1], asm);
+        File.WriteAllText(output, asm);
+        return 0;
     }
 
     private static IEnumerable<ModuleNode> RunFrontend(string path)

@@ -68,10 +68,8 @@ public class Generator
             _builder.AppendLine($"    mov [{symbol.Identifier}], rax");
         }
 
-        _builder.AppendLine();
         _builder.AppendLine($"    call {main.StartLabel}");
 
-        _builder.AppendLine();
         _builder.AppendLine(main.ReturnType.HasValue
             ? "    mov rdi, rax"
             : "    mov rdi, 0");
