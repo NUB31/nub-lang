@@ -6,38 +6,37 @@ namespace Nub.Lang.Frontend.Parsing;
 
 public class Parser
 {
-    private readonly Token[] _tokens;
+    private IReadOnlyCollection<Token> _tokens = [];
     private int _index;
-
-    public Parser(IReadOnlyCollection<Token> tokens)
-    {
-        _tokens = tokens.ToArray();
-    }
-
-    public FileNode ParseFile(string relativePath)
+    
+    public ModuleNode ParseModule(IReadOnlyCollection<Token> tokens, string path)
     {
         _index = 0;
+        _tokens = tokens;
+        
         List<DefinitionNode> definitions = [];
-        List<string> includes = [];
-
-        while (TryExpectSymbol(Symbol.Include))
-        {
-            var name = ExpectLiteral();
-            if (name.Type is not StringType)
-            {
-                throw new Exception("Using statements must have a string literal value");
-            }
-
-            TryExpectSymbol(Symbol.Semicolon);
-            includes.Add(name.Value);
-        }
+        List<string> imports = [];
         
         while (Peek().HasValue)
         {
-            definitions.Add(ParseDefinition());
+            if (TryExpectSymbol(Symbol.Import))
+            {
+                var name = ExpectLiteral();
+                if (name.Type is not StringType)
+                {
+                    throw new Exception("Import statements must have a string literal value");
+                }
+
+                TryExpectSymbol(Symbol.Semicolon);
+                imports.Add(name.Value);
+            }
+            else
+            {
+                definitions.Add(ParseDefinition());
+            }
         }
 
-        return new FileNode(includes, definitions);
+        return new ModuleNode(path, imports, definitions);
     }
 
     private DefinitionNode ParseDefinition()
@@ -450,14 +449,14 @@ public class Parser
 
     private Optional<Token> Peek()
     {
-        while (_index < _tokens.Length && _tokens[_index] is SymbolToken { Symbol: Symbol.Whitespace })
+        while (_index < _tokens.Count && _tokens.ElementAt(_index) is SymbolToken { Symbol: Symbol.Whitespace })
         {
             Next();
         }
 
-        if (_index < _tokens.Length)
+        if (_index < _tokens.Count)
         {
-            return _tokens[_index];
+            return _tokens.ElementAt(_index);
         }
 
         return Optional<Token>.Empty();

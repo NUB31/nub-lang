@@ -1,39 +1,45 @@
-﻿using System.Diagnostics;
-using Nub.Lang.Backend.Custom;
+﻿using Nub.Lang.Backend.Custom;
 using Nub.Lang.Frontend.Lexing;
 using Nub.Lang.Frontend.Parsing;
 using Nub.Lang.Frontend.Typing;
 
-var rootPath = Path.GetDirectoryName(args[0]);
-var rootFileName = Path.GetFileName(args[0]);
-Debug.Assert(rootPath != null && rootFileName != null);
+List<ModuleNode> modules = [];
 
-Dictionary<string, FileNode> files = [];
+var lexer = new Lexer();
+var parser = new Parser();
 
-Queue<string> queue = [];
-queue.Enqueue(rootFileName);
+Parse(args[0]);
 
-while (queue.TryDequeue(out var path))
+void Parse(string path)
 {
-    var src = File.ReadAllText(Path.Combine(rootPath, path));
-    
-    var lexer = new Lexer(src);
-    var tokens = lexer.Lex();
-    
-    var parser = new Parser(tokens);
-    var file = parser.ParseFile(path);
-    files[path] = file;
+    var files = Directory.EnumerateFiles(path, "*.nub", SearchOption.TopDirectoryOnly);
 
-    foreach (var include in file.Includes)
+    List<Token> tokens = [];
+    foreach (var file in files)
     {
-        if (!files.ContainsKey(include))
+        var src = File.ReadAllText(file);
+        tokens.AddRange(lexer.Lex(src));
+    }
+
+    var module = parser.ParseModule(tokens, path);
+    modules.Add(module);
+    
+    foreach (var import in module.Imports)
+    {
+        var importPath = Path.GetFullPath(import, module.Path);
+        if (modules.All(m => m.Path != importPath))
         {
-            queue.Enqueue(include);
+            Parse(importPath);
         }
     }
 }
 
-var definitions = files.Values.SelectMany(f => f.Definitions).ToArray();
+foreach (var moduleNode in modules)
+{
+    Console.WriteLine(moduleNode.Path);
+}
+
+var definitions = modules.SelectMany(f => f.Definitions).ToArray();
 
 var typer = new ExpressionTyper(definitions);
 typer.Populate();

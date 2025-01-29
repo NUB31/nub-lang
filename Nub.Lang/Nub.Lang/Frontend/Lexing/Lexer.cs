@@ -9,7 +9,7 @@ public class Lexer
         ["func"] = Symbol.Func,
         ["extern"] = Symbol.Extern,
         ["return"] = Symbol.Return,
-        ["include"] = Symbol.Include,
+        ["import"] = Symbol.Import,
         ["let"] = Symbol.Let,
         ["if"] = Symbol.If,
         ["else"] = Symbol.Else,
@@ -45,17 +45,14 @@ public class Lexer
         ['!'] = Symbol.Bang,
     };
     
-    private readonly string _src;
+    private string _src = string.Empty;
     private int _index;
 
-    public Lexer(string src)
+    public IReadOnlyCollection<Token> Lex(string src)
     {
         _src = src;
-    }
-    
-    public IReadOnlyCollection<Token> Lex()
-    {
         _index = 0;
+        
         List<Token> tokens = [];
         while (Peek().HasValue)
         {
