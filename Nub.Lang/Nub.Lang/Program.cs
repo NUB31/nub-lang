@@ -3,50 +3,58 @@ using Nub.Lang.Frontend.Lexing;
 using Nub.Lang.Frontend.Parsing;
 using Nub.Lang.Frontend.Typing;
 
-List<ModuleNode> modules = [];
+namespace Nub.Lang;
 
-var lexer = new Lexer();
-var parser = new Parser();
-
-Parse(args[0]);
-
-void Parse(string path)
+internal static class Program
 {
-    var files = Directory.EnumerateFiles(path, "*.nub", SearchOption.TopDirectoryOnly);
-
-    List<Token> tokens = [];
-    foreach (var file in files)
+    private static readonly Lexer Lexer = new();
+    private static readonly Parser Parser = new();
+    
+    public static void Main(string[] args)
     {
-        var src = File.ReadAllText(file);
-        tokens.AddRange(lexer.Lex(src));
+        var modules = RunFrontend(args[0]);
+
+        var definitions = modules.SelectMany(f => f.Definitions).ToArray();
+
+        var typer = new ExpressionTyper(definitions);
+        typer.Populate();
+
+        var generator = new Generator(definitions);
+        var asm = generator.Generate();
+
+        Console.WriteLine(asm);
+
+        File.WriteAllText(args[1], asm);
     }
 
-    var module = parser.ParseModule(tokens, path);
-    modules.Add(module);
-    
-    foreach (var import in module.Imports)
+    private static IEnumerable<ModuleNode> RunFrontend(string path)
     {
-        var importPath = Path.GetFullPath(import, module.Path);
-        if (modules.All(m => m.Path != importPath))
+        List<ModuleNode> modules = [];
+        RunFrontend(path, modules);
+        return modules;
+    }
+
+    private static void RunFrontend(string path, List<ModuleNode> modules)
+    {
+        var files = Directory.EnumerateFiles(path, "*.nub", SearchOption.TopDirectoryOnly);
+
+        List<Token> tokens = [];
+        foreach (var file in files)
         {
-            Parse(importPath);
+            var src = File.ReadAllText(file);
+            tokens.AddRange(Lexer.Lex(src));
+        }
+
+        var module = Parser.ParseModule(tokens, path);
+        modules.Add(module);
+
+        foreach (var import in module.Imports)
+        {
+            var importPath = Path.GetFullPath(import, module.Path);
+            if (modules.All(m => m.Path != importPath))
+            {
+                RunFrontend(importPath, modules);
+            }
         }
     }
 }
-
-foreach (var moduleNode in modules)
-{
-    Console.WriteLine(moduleNode.Path);
-}
-
-var definitions = modules.SelectMany(f => f.Definitions).ToArray();
-
-var typer = new ExpressionTyper(definitions);
-typer.Populate();
-
-var generator = new Generator(definitions);
-var asm = generator.Generate();
-
-Console.WriteLine(asm);
-
-File.WriteAllText(args[1], asm);
