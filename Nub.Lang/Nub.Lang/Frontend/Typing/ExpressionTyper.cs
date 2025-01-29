@@ -17,35 +17,25 @@ public class ExpressionTyper
     private readonly List<GlobalVariableDefinitionNode> _variableDefinitions;
     private readonly Stack<Variable> _variables;
 
-    public ExpressionTyper(FileNode file, Dictionary<string, FileNode> deps)
+    public ExpressionTyper(IReadOnlyCollection<DefinitionNode> definitions)
     {
         _variables = new Stack<Variable>();
         _functions = [];
         _variableDefinitions = [];
         
-        ResolveFunctions(file, deps);
-    }
-
-    private void ResolveFunctions(FileNode file, Dictionary<string, FileNode> deps)
-    {
-        var functions = file.Definitions
+        var functions = definitions
             .OfType<LocalFuncDefinitionNode>()
             .Select(f => new Func(f.Name, f.Parameters, f.Body, f.ReturnType))
             .ToList();
         
-        var externFunctions = file.Definitions
+        var externFunctions = definitions
             .OfType<ExternFuncDefinitionNode>()
             .Select(f => new Func(f.Name, f.Parameters, Optional<BlockNode>.Empty(), f.ReturnType))
             .ToList();
         
         _functions.AddRange(functions);
         _functions.AddRange(externFunctions);
-        _variableDefinitions.AddRange(file.Definitions.OfType<GlobalVariableDefinitionNode>());
-        
-        foreach (var include in file.Includes)
-        {
-            ResolveFunctions(deps[include], deps);
-        }
+        _variableDefinitions.AddRange(definitions.OfType<GlobalVariableDefinitionNode>());
     }
 
     public void Populate()

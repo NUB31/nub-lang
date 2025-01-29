@@ -52,7 +52,7 @@ public class Generator
         foreach (var globalVariable in _definitions.OfType<GlobalVariableDefinitionNode>())
         {
             var symbol = _symbolTable.ResolveGlobalVariable(globalVariable.Name);
-            _builder.AppendLine($"    {symbol.Identifier}: resq 1 ; {globalVariable.Name}");
+            _builder.AppendLine($"    {symbol.Identifier}: resq 1");
         }
 
         _builder.AppendLine();
@@ -61,7 +61,6 @@ public class Generator
         
         var main = _symbolTable.ResolveLocalFunc(Entrypoint, []);
         
-        _builder.AppendLine("    ; Initialize global variables");
         foreach (var globalVariable in _definitions.OfType<GlobalVariableDefinitionNode>())
         {
             var symbol = _symbolTable.ResolveGlobalVariable(globalVariable.Name);
@@ -70,13 +69,12 @@ public class Generator
         }
 
         _builder.AppendLine();
-        _builder.AppendLine($"    ; Call entrypoint {Entrypoint}");
         _builder.AppendLine($"    call {main.StartLabel}");
 
         _builder.AppendLine();
         _builder.AppendLine(main.ReturnType.HasValue
-            ? "    mov rdi, rax ; Exit with return value of entrypoint"
-            : "    mov rdi, 0 ; Exit with default status code 0");
+            ? "    mov rdi, rax"
+            : "    mov rdi, 0");
         _builder.AppendLine("    mov rax, 60");
         _builder.AppendLine("    syscall");
 
@@ -121,16 +119,13 @@ public class Generator
     {
         var func = _symbolTable.ResolveLocalFunc(node.Name, node.Parameters.Select(p => p.Type).ToList());
         
-        _builder.AppendLine($"; {node.ToString()}");
         _builder.AppendLine($"{func.StartLabel}:");
-        _builder.AppendLine("    ; Set up stack frame");
         _builder.AppendLine("    push rbp");
         _builder.AppendLine("    mov rbp, rsp");
         _builder.AppendLine($"    sub rsp, {func.StackAllocation}");
         
         string[] registers = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
         
-        _builder.AppendLine("    ; Body");
         for (var i = 0; i < func.Parameters.Count; i++)
         {
             var parameter = func.ResolveLocalVariable(func.Parameters.ElementAt(i).Name);
@@ -149,7 +144,6 @@ public class Generator
         GenerateBlock(node.Body, func);
 
         _builder.AppendLine($"{func.EndLabel}:");
-        _builder.AppendLine("    ; Clean up stack frame");
         _builder.AppendLine("    mov rsp, rbp");
         _builder.AppendLine("    pop rbp");
         _builder.AppendLine("    ret");

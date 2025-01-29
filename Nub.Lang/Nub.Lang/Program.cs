@@ -33,13 +33,12 @@ while (queue.TryDequeue(out var path))
     }
 }
 
-foreach (var file in files)
-{
-    var typer = new ExpressionTyper(file.Value, files);
-    typer.Populate();
-}
+var definitions = files.Values.SelectMany(f => f.Definitions).ToArray();
 
-var generator = new Generator(files.Values.SelectMany(f => f.Definitions).ToList());
+var typer = new ExpressionTyper(definitions);
+typer.Populate();
+
+var generator = new Generator(definitions);
 var asm = generator.Generate();
 
 Console.WriteLine(asm);
