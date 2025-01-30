@@ -1,1 +1,2 @@
 ﻿extern func str_len(msg: String): int64;
+extern func itoa(value: int64): String;
