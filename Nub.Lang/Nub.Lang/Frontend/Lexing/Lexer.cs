@@ -8,11 +8,12 @@ public class Lexer
     { 
         ["func"] = Symbol.Func,
         ["extern"] = Symbol.Extern,
-        ["return"] = Symbol.Return,
         ["import"] = Symbol.Import,
         ["let"] = Symbol.Let,
         ["if"] = Symbol.If,
         ["else"] = Symbol.Else,
+        ["while"] = Symbol.While,
+        ["return"] = Symbol.Return,
     };
 
     private static readonly Dictionary<char[], Symbol> Chians = new()

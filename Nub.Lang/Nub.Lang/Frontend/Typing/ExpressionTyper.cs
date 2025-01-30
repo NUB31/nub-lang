@@ -101,6 +101,9 @@ public class ExpressionTyper
             case VariableReassignmentNode variableReassignment:
                 PopulateVariableReassignment(variableReassignment);
                 break;
+            case WhileNode whileStatement:
+                PopulateWhileStatement(whileStatement);
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(statement));
         }
@@ -153,6 +156,12 @@ public class ExpressionTyper
     private void PopulateVariableReassignment(VariableReassignmentNode variableReassignment)
     {
         PopulateExpression(variableReassignment.Value);
+    }
+
+    private void PopulateWhileStatement(WhileNode whileStatement)
+    {
+        PopulateExpression(whileStatement.Condition);
+        PopulateBlock(whileStatement.Body);
     }
 
     private void PopulateExpression(ExpressionNode expression)

@@ -163,25 +163,14 @@ public class Parser
             }
             case SymbolToken symbol:
             {
-                switch (symbol.Symbol)
+                return symbol.Symbol switch
                 {
-                    case Symbol.Return:
-                    {
-                        return ParseReturn();
-                    }
-                    case Symbol.Let:
-                    {
-                        return ParseVariableAssignment();
-                    }
-                    case Symbol.If:
-                    {
-                        return ParseIf();
-                    }
-                    default:
-                    {
-                        throw new Exception($"Unexpected symbol {symbol.Symbol}");
-                    }
-                }   
+                    Symbol.Return => ParseReturn(),
+                    Symbol.Let => ParseVariableAssignment(),
+                    Symbol.If => ParseIf(),
+                    Symbol.While => ParseWhile(),
+                    _ => throw new Exception($"Unexpected symbol {symbol.Symbol}")
+                };
             }
             default:
             {
@@ -226,6 +215,13 @@ public class Parser
         }
                         
         return new IfNode(condition, body, elseStatement);
+    }
+
+    private WhileNode ParseWhile()
+    {
+        var condition = ParseExpression();
+        var body = ParseBlock();
+        return new WhileNode(condition, body);
     }
 
     private ExpressionNode ParseExpression(int precedence = 0)

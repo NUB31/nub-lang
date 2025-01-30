@@ -222,6 +222,9 @@ public class Generator
             case VariableReassignmentNode variableReassignment:
                 GenerateVariableReassignment(variableReassignment, func);
                 break;
+            case WhileNode whileStatement:
+                GenerateWhile(whileStatement, func);
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(statement));
         }
@@ -276,6 +279,19 @@ public class Generator
         var variable = func.ResolveLocalVariable(variableReassignment.Name);
         GenerateExpression(variableReassignment.Value, func);
         _builder.AppendLine($"    mov [rbp - {variable.Offset}], rax");
+    }
+
+    private void GenerateWhile(WhileNode whileStatement, LocalFunc func)
+    {
+        var startLabel = _labelFactory.Create();
+        var endLabel = _labelFactory.Create();
+        _builder.AppendLine($"{startLabel}:");
+        GenerateExpression(whileStatement.Condition, func);
+        _builder.AppendLine("    cmp rax, 0");
+        _builder.AppendLine($"    je {endLabel}");
+        GenerateBlock(whileStatement.Body, func);
+        _builder.AppendLine($"    jmp {startLabel}");
+        _builder.AppendLine($"{endLabel}:");
     }
 
     private void GenerateExpression(ExpressionNode expression, LocalFunc func)
@@ -366,7 +382,7 @@ public class Generator
             case DelegateType:
                 throw new NotSupportedException($"Comparison on type {type.GetType().Name} is not supported");
             case PrimitiveType:
-                _builder.AppendLine("    cmp rax, rax");
+                _builder.AppendLine("    cmp rax, rbx");
                 break;
             case StringType:
                 _builder.AppendLine("    mov rdi, rax");

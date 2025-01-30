@@ -15,6 +15,7 @@ public enum Symbol
     Let,
     If,
     Else,
+    While,
     Semicolon,
     Colon,
     OpenParen,
