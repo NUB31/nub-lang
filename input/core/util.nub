@@ -1,1 +1,0 @@
-extern func printint(val: int64);
