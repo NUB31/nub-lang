@@ -5,8 +5,8 @@ func main() {
     println(some_string);
     
     let some_array = new Array<int64>(2);
-    some_array[1] = 1;
-    some_array[2] = 2;
+    some_array[1] = 123;
+    some_array[2] = 124;
     
     let i = 1;
     

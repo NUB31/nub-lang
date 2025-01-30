@@ -371,17 +371,9 @@ public class Generator
 
     private void GenerateArrayInitializer(ArrayInitializerNode arrayInitializer, LocalFunc func)
     {
-        _builder.AppendLine($"""
-                                mov rax, 9
-                                mov rdi, 0
-                                mov rsi, {8 + arrayInitializer.Length * 8}
-                                mov rdx, 3
-                                mov r10, 34
-                                mov r8, -1
-                                mov r9, 0
-                                syscall
-                                mov QWORD [rax], {arrayInitializer.Length}
-                            """);
+        _builder.AppendLine($"    sub rsp, {8 + arrayInitializer.Length * 8}");
+        _builder.AppendLine("    mov rax, rsp");
+        _builder.AppendLine($"    mov QWORD [rsp], {arrayInitializer.Length}");
     }
 
     private void GenerateBinaryExpression(BinaryExpressionNode binaryExpression, LocalFunc func)
