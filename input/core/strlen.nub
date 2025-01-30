@@ -1,1 +1,0 @@
-﻿extern func strlen(msg: String): int64;

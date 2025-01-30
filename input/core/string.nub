@@ -1,0 +1,1 @@
+﻿extern func str_len(msg: String): int64;

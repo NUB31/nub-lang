@@ -2,8 +2,14 @@ let SYS_WRITE = 1;
 let STD_OUT = 1;
 let STD_ERR = 2;
 
+extern func print_int(value: int64);
+
 func print(msg: String) {
-    syscall(SYS_WRITE, STD_OUT, msg, strlen(msg));
+    syscall(SYS_WRITE, STD_OUT, msg, str_len(msg));
+}
+
+func print(value: int64) {
+    print_int(value);
 }
 
 func print(value: bool) {
@@ -24,6 +30,11 @@ func println(msg: String) {
 }
 
 func println(value: bool) {
+    print(value);
+    println();
+}
+
+func println(value: int64) {
     print(value);
     println();
 }

@@ -1,6 +1,6 @@
-global arrsize
+global arr_size
 section .text
 
-arrsize:
+arr_size:
     mov rax, [rdi]
     ret

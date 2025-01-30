@@ -1,7 +1,7 @@
-global strlen
+global str_len
 section .text
 
-strlen:
+str_len:
     xor rax, rax
 .loop:
     cmp byte [rdi], 0

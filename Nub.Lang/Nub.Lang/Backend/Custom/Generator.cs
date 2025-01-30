@@ -76,7 +76,7 @@ public class Generator
                                 mov rdi, 69
                                 syscall
                             
-                            strcmp:
+                            str_cmp:
                                 xor rdx, rdx
                             .loop:
                                 mov al, [rsi + rdx]
@@ -436,7 +436,7 @@ public class Generator
             case StringType:
                 _builder.AppendLine("    mov rdi, rax");
                 _builder.AppendLine("    mov rsi, rbx");
-                _builder.AppendLine("    call strcmp");
+                _builder.AppendLine("    call str_cmp");
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(type));

@@ -1,6 +1,5 @@
 import "core";
 
 func main() {
-    let x = new Array<String>(2);
-    println(x == y);
+    println(58963475689457686745867567656769845676984567698475698674589675);
 }
