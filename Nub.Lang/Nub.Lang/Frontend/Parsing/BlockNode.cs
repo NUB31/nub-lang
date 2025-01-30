@@ -1,6 +1,6 @@
 ﻿namespace Nub.Lang.Frontend.Parsing;
 
-public class BlockNode(IReadOnlyCollection<StatementNode> statements) : Node
+public class BlockNode(List<StatementNode> statements) : Node
 {
-    public IReadOnlyCollection<StatementNode> Statements { get; } = statements;
+    public List<StatementNode> Statements { get; } = statements;
 }

@@ -45,13 +45,13 @@ public record StringType : Type
 
 public record DelegateType : Type
 {
-    public DelegateType(IReadOnlyCollection<Type> parameters, Optional<Type> returnType)
+    public DelegateType(List<Type> parameters, Optional<Type> returnType)
     {
         Parameters = parameters;
         ReturnType = returnType;
     }
     
-    public IReadOnlyCollection<Type> Parameters { get; }
+    public List<Type> Parameters { get; }
     public Optional<Type> ReturnType { get; }
 
     public override string ToString() => $"({string.Join(", ", Parameters)}): {(ReturnType.HasValue ? ReturnType.Value.ToString() : "")}";

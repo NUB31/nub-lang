@@ -48,7 +48,7 @@ public class Lexer
     private string _src = string.Empty;
     private int _index;
 
-    public IReadOnlyCollection<Token> Lex(string src)
+    public List<Token> Lex(string src)
     {
         _src = src;
         _index = 0;

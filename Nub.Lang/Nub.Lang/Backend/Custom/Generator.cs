@@ -12,7 +12,7 @@ public class Generator
     private readonly StringBuilder _builder;
     private readonly LabelFactory _labelFactory;
     
-    public Generator(IReadOnlyCollection<DefinitionNode> definitions)
+    public Generator(List<DefinitionNode> definitions)
     {
         _definitions = [];
         _builder = new StringBuilder();

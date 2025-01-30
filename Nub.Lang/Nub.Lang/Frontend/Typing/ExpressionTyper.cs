@@ -3,10 +3,10 @@ using Nub.Lang.Frontend.Parsing;
 
 namespace Nub.Lang.Frontend.Typing;
 
-public class Func(string name, IReadOnlyCollection<FuncParameter> parameters, Optional<BlockNode> body, Optional<Type> returnType)
+public class Func(string name, List<FuncParameter> parameters, Optional<BlockNode> body, Optional<Type> returnType)
 {
     public string Name { get; } = name;
-    public IReadOnlyCollection<FuncParameter> Parameters { get; } = parameters;
+    public List<FuncParameter> Parameters { get; } = parameters;
     public Optional<BlockNode> Body { get; } = body;
     public Optional<Type> ReturnType { get; } = returnType;
 }
@@ -17,7 +17,7 @@ public class ExpressionTyper
     private readonly List<GlobalVariableDefinitionNode> _variableDefinitions;
     private readonly Stack<Variable> _variables;
 
-    public ExpressionTyper(IReadOnlyCollection<DefinitionNode> definitions)
+    public ExpressionTyper(List<DefinitionNode> definitions)
     {
         _variables = new Stack<Variable>();
         _functions = [];

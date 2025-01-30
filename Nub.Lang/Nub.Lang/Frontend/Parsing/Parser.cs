@@ -6,10 +6,10 @@ namespace Nub.Lang.Frontend.Parsing;
 
 public class Parser
 {
-    private IReadOnlyCollection<Token> _tokens = [];
+    private List<Token> _tokens = [];
     private int _index;
     
-    public ModuleNode ParseModule(IReadOnlyCollection<Token> tokens, string path)
+    public ModuleNode ParseModule(List<Token> tokens, string path)
     {
         _index = 0;
         _tokens = tokens;

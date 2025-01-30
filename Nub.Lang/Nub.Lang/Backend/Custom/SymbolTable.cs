@@ -90,7 +90,7 @@ public class SymbolTable
         return variables;
     }
     
-    public Func ResolveFunc(string name, IReadOnlyCollection<Type> parameterTypes)
+    public Func ResolveFunc(string name, List<Type> parameterTypes)
     {
         var func = _funcDefinitions.FirstOrDefault(f => f.SignatureMatches(name, parameterTypes));
         if (func == null)
@@ -101,7 +101,7 @@ public class SymbolTable
         return func;
     }
     
-    public LocalFunc ResolveLocalFunc(string name, IReadOnlyCollection<Type> parameterTypes)
+    public LocalFunc ResolveLocalFunc(string name, List<Type> parameterTypes)
     {
         var func = ResolveFunc(name, parameterTypes);
         if (func is not LocalFunc localFunc)
@@ -111,7 +111,7 @@ public class SymbolTable
         return localFunc;
     }
     
-    public ExternFunc ResolveExternFunc(string name, IReadOnlyCollection<Type> parameterTypes)
+    public ExternFunc ResolveExternFunc(string name, List<Type> parameterTypes)
     {
         var func = ResolveFunc(name, parameterTypes);
         if (func is not ExternFunc externFunc)
@@ -151,7 +151,7 @@ public class GlobalVariable(string name, Type type, string identifier) : Variabl
 
 public abstract class Func
 {
-    protected Func(string name, string startLabel, IReadOnlyCollection<FuncParameter> parameters, Optional<Type> returnType)
+    protected Func(string name, string startLabel, List<FuncParameter> parameters, Optional<Type> returnType)
     {
         Name = name;
         Parameters = parameters;
@@ -161,10 +161,10 @@ public abstract class Func
 
     public string Name { get; }
     public string StartLabel { get; }
-    public IReadOnlyCollection<FuncParameter> Parameters { get; }
+    public List<FuncParameter> Parameters { get; }
     public Optional<Type> ReturnType { get; }
 
-    public bool SignatureMatches(string name, IReadOnlyCollection<Type> parameterTypes)
+    public bool SignatureMatches(string name, List<Type> parameterTypes)
     {
         return Name == name 
                && Parameters.Count == parameterTypes.Count 
@@ -174,21 +174,21 @@ public abstract class Func
 
 public class ExternFunc : Func
 {
-    public ExternFunc(string name, string startLabel, IReadOnlyCollection<FuncParameter> parameters, Optional<Type> returnType) : base(name, startLabel, parameters, returnType)
+    public ExternFunc(string name, string startLabel, List<FuncParameter> parameters, Optional<Type> returnType) : base(name, startLabel, parameters, returnType)
     {
     }
 }
 
 public class LocalFunc : Func
 {
-    public LocalFunc(string name, string startLabel, string endLabel, IReadOnlyCollection<FuncParameter> parameters, Optional<Type> returnType, IReadOnlyCollection<Variable> variables) : base(name, startLabel, parameters, returnType)
+    public LocalFunc(string name, string startLabel, string endLabel, List<FuncParameter> parameters, Optional<Type> returnType, List<Variable> variables) : base(name, startLabel, parameters, returnType)
     {
         EndLabel = endLabel;
         Variables = variables;
     }
 
     public string EndLabel { get; }
-    public IReadOnlyCollection<Variable> Variables { get; }
+    public List<Variable> Variables { get; }
     public int StackAllocation => Variables.OfType<LocalVariable>().Sum(variable => variable.Offset);
 
     public Variable ResolveVariable(string name)

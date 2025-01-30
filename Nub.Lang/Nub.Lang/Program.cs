@@ -42,7 +42,7 @@ internal static class Program
         }
 
         var modules = RunFrontend(input);
-        var definitions = modules.SelectMany(f => f.Definitions).ToArray();
+        var definitions = modules.SelectMany(f => f.Definitions).ToList();
 
         var typer = new ExpressionTyper(definitions);
         typer.Populate();
@@ -54,7 +54,7 @@ internal static class Program
         return 0;
     }
 
-    private static IEnumerable<ModuleNode> RunFrontend(string path)
+    private static List<ModuleNode> RunFrontend(string path)
     {
         List<ModuleNode> modules = [];
         RunFrontend(path, modules);
