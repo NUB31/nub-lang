@@ -13,6 +13,8 @@ public class Lexer
         ["if"] = Symbol.If,
         ["else"] = Symbol.Else,
         ["while"] = Symbol.While,
+        ["break"] = Symbol.Break,
+        ["continue"] = Symbol.Continue,
         ["return"] = Symbol.Return,
         ["new"] = Symbol.New,
     };

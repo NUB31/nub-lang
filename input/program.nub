@@ -1,5 +1,20 @@
 import "core";
 
 func main() {
-    println(69);
+    let some_string = "test";
+    println(some_string);
+    
+    let some_array = new Array<int64>(2);
+    some_array[1] = 1;
+    some_array[2] = 2;
+    
+    let i = 1;
+    
+    println(some_array[1]);
+    println(some_array[2]);
+    
+    while i <= arr_size(some_array) {
+        println(some_array[i]);
+        i = i + 1;
+    }
 }

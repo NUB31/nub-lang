@@ -12,6 +12,7 @@ public class Generator
     private readonly SymbolTable _symbolTable;
     private readonly StringBuilder _builder;
     private readonly LabelFactory _labelFactory;
+    private readonly Stack<(string StartLabel, string EndLabel)> _loops;
     
     public Generator(List<DefinitionNode> definitions)
     {
@@ -19,6 +20,7 @@ public class Generator
         _builder = new StringBuilder();
         _labelFactory = new LabelFactory();
         _symbolTable = new SymbolTable(_labelFactory);
+        _loops = [];
 
         foreach (var globalVariableDefinition in definitions.OfType<GlobalVariableDefinitionNode>())
         {
@@ -213,6 +215,12 @@ public class Generator
             case ArrayIndexAssignmentNode arrayIndexAssignment:
                 GenerateArrayIndexAssignment(arrayIndexAssignment, func);
                 break;
+            case BreakNode:
+                GenerateBreak();
+                break;
+            case ContinueNode:
+                GenerateContinue();
+                break;
             case FuncCallStatementNode funcCallStatement:
                 GenerateFuncCall(funcCallStatement.FuncCall, func);
                 break;
@@ -237,6 +245,16 @@ public class Generator
             default:
                 throw new ArgumentOutOfRangeException(nameof(statement));
         }
+    }
+
+    private void GenerateBreak()
+    {
+        _builder.AppendLine($"    jmp {_loops.Peek().EndLabel}");
+    }
+    
+    private void GenerateContinue()
+    {
+        _builder.AppendLine($"    jmp {_loops.Peek().StartLabel}");
     }
 
     private void GenerateArrayIndexAssignment(ArrayIndexAssignmentNode arrayIndexAssignment, LocalFunc func)
@@ -303,11 +321,14 @@ public class Generator
     {
         var startLabel = _labelFactory.Create();
         var endLabel = _labelFactory.Create();
+        
         _builder.AppendLine($"{startLabel}:");
         GenerateExpression(whileStatement.Condition, func);
         _builder.AppendLine("    cmp rax, 0");
         _builder.AppendLine($"    je {endLabel}");
+        _loops.Push((startLabel, endLabel));
         GenerateBlock(whileStatement.Body, func);
+        _loops.Pop();
         _builder.AppendLine($"    jmp {startLabel}");
         _builder.AppendLine($"{endLabel}:");
     }
@@ -627,25 +648,25 @@ public class Generator
         GenerateExpression(index, func);
         _builder.AppendLine("    push rax");
         GenerateIdentifier(identifier, func);
-        _builder.AppendLine("    pop rcx");
+        _builder.AppendLine("    pop rdx");
         
         // rcx now holds the length of the array which we can use to check bounds
         _builder.AppendLine("    mov rcx, [rax]");
-        _builder.AppendLine("    cmp rcx, rcx");
+        _builder.AppendLine("    cmp rdx, rcx");
         if (ZeroBasedIndexing)
         {
             _builder.AppendLine("    jge array_out_of_bounds");
-            _builder.AppendLine("    cmp rcx, 0");
+            _builder.AppendLine("    cmp rdx, 0");
         }
         else
         {
             _builder.AppendLine("    jg array_out_of_bounds");
-            _builder.AppendLine("    cmp rcx, 1");
+            _builder.AppendLine("    cmp rdx, 1");
         }
         _builder.AppendLine("    jl array_out_of_bounds");
 
-        _builder.AppendLine("    inc rcx");
-        _builder.AppendLine("    shl rcx, 3");
-        _builder.AppendLine("    add rax, rcx");
+        _builder.AppendLine("    inc rdx");
+        _builder.AppendLine("    shl rdx, 3");
+        _builder.AppendLine("    add rax, rdx");
     }
 }

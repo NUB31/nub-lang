@@ -178,6 +178,8 @@ public class Parser
                     Symbol.Let => ParseVariableAssignment(),
                     Symbol.If => ParseIf(),
                     Symbol.While => ParseWhile(),
+                    Symbol.Break => ParseBreak(),
+                    Symbol.Continue => ParseContinue(),
                     _ => throw new Exception($"Unexpected symbol {symbol.Symbol}")
                 };
             }
@@ -233,6 +235,18 @@ public class Parser
         return new WhileNode(condition, body);
     }
 
+    private BreakNode ParseBreak()
+    {
+        ExpectSymbol(Symbol.Semicolon);
+        return new BreakNode();
+    }
+
+    private ContinueNode ParseContinue()
+    {
+        ExpectSymbol(Symbol.Semicolon);
+        return new ContinueNode();
+    }
+    
     private ExpressionNode ParseExpression(int precedence = 0)
     {
         var left = ParsePrimaryExpression();

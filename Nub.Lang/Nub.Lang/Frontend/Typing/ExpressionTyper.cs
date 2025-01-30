@@ -86,6 +86,9 @@ public class ExpressionTyper
             case ArrayIndexAssignmentNode arrayIndexAssignment:
                 PopulateArrayIndexAssignment(arrayIndexAssignment);
                 break;
+            case BreakNode:
+            case ContinueNode:
+                break;
             case FuncCallStatementNode funcCall:
                 PopulateFuncCallStatement(funcCall);
                 break;
