@@ -41,6 +41,18 @@ public record StringType : Type
     public override string ToString() => "String";
 }
 
+public record ArrayType : Type
+{
+    public ArrayType(Type innerType)
+    {
+        InnerType = innerType;
+    }
+
+    public Type InnerType { get; }
+
+    public override string ToString() => $"{InnerType}";
+}
+
 public record DelegateType : Type
 {
     public DelegateType(List<Type> parameters, Optional<Type> returnType)

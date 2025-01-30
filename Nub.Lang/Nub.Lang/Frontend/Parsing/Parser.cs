@@ -149,6 +149,15 @@ public class Parser
 
                         return new FuncCallStatementNode(new FuncCall(identifier.Value, parameters));
                     }
+                    case Symbol.OpenBracket:
+                    {
+                        var index = ParseExpression();
+                        ExpectSymbol(Symbol.CloseBracket);
+                        ExpectSymbol(Symbol.Assign);
+                        var value = ParseExpression();
+                        ExpectSymbol(Symbol.Semicolon);
+                        return new ArrayIndexAssignmentNode(new IdentifierNode(identifier.Value), index, value);
+                    }
                     case Symbol.Assign:
                     {
                         var value = ParseExpression();
@@ -310,10 +319,32 @@ public class Parser
                 return new LiteralNode(literal.Value, literal.Type);
             case IdentifierToken identifier:
                 return ParseExpressionIdentifier(identifier);
-            case SymbolToken { Symbol: Symbol.OpenParen }:
-                var expression = ParseExpression();
-                ExpectSymbol(Symbol.CloseParen);
-                return expression;
+            case SymbolToken symbolToken:
+            {
+                switch (symbolToken.Symbol)
+                {
+                    case Symbol.OpenParen:
+                    {
+                        var expression = ParseExpression();
+                        ExpectSymbol(Symbol.CloseParen);
+                        return expression;
+                    }
+                    case Symbol.New:
+                    {
+                        var type = ParseType();
+                        ExpectSymbol(Symbol.OpenParen);
+                        var size = ExpectLiteral();
+                        if (size.Type is not PrimitiveType { Kind: PrimitiveTypeKind.Int64 })
+                        {
+                            throw new Exception($"Array initializer size must be an {PrimitiveTypeKind.Int64}");
+                        }
+                        ExpectSymbol(Symbol.CloseParen);
+                        return new ArrayInitializerNode(long.Parse(size.Value), type);
+                    }
+                    default:
+                        throw new Exception($"Unknown symbol: {symbolToken.Symbol}");
+                }
+            }
             default: 
                 throw new Exception($"Unexpected token type {token.GetType().Name}");
         }
@@ -321,6 +352,13 @@ public class Parser
 
     private ExpressionNode ParseExpressionIdentifier(IdentifierToken identifier)
     {
+        if (TryExpectSymbol(Symbol.OpenBracket))
+        {
+            var index = ParseExpression();
+            ExpectSymbol(Symbol.CloseBracket);
+            return new ArrayIndexAccessNode(new IdentifierNode(identifier.Value), index);
+        }
+        
         if (TryExpectSymbol(Symbol.OpenParen))
         {
             List<ExpressionNode> parameters = [];
@@ -356,30 +394,42 @@ public class Parser
     private Type ParseType()
     {
         var name = ExpectIdentifier().Value;
-        if (name == "Func")
+        
+        switch (name)
         {
-            List<Type> typeArguments = [];
-            if (TryExpectSymbol(Symbol.LessThan))
+            case "Func":
             {
-                while (!TryExpectSymbol(Symbol.GreaterThan))
+                List<Type> typeArguments = [];
+                if (TryExpectSymbol(Symbol.LessThan))
                 {
-                    var type = ParseType();
-                    typeArguments.Add(type);
-                    TryExpectSymbol(Symbol.Comma);
+                    while (!TryExpectSymbol(Symbol.GreaterThan))
+                    {
+                        var type = ParseType();
+                        typeArguments.Add(type);
+                        TryExpectSymbol(Symbol.Comma);
+                    }
                 }
+
+                var returnType = Optional<Type>.OfNullable(typeArguments.LastOrDefault());
+
+                return new DelegateType(typeArguments.Take(typeArguments.Count - 1).ToList(), returnType);
             }
-
-            var returnType = Optional<Type>.OfNullable(typeArguments.LastOrDefault());
-
-            return new DelegateType(typeArguments.Take(typeArguments.Count - 1).ToList(), returnType);
+            case "String":
+            {
+                return new StringType();
+            }
+            case "Array":
+            {
+                ExpectSymbol(Symbol.LessThan);
+                var innerType = ParseType();
+                ExpectSymbol(Symbol.GreaterThan);
+                return new ArrayType(innerType);
+            }
+            default:
+            {
+                return PrimitiveType.Parse(name);
+            }
         }
-
-        if (name == "String")
-        {
-            return new StringType();
-        }
-
-        return PrimitiveType.Parse(name);
     }
 
     private Token ExpectToken()

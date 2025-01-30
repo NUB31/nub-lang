@@ -38,4 +38,5 @@ public enum Symbol
     Minus,
     Star,
     ForwardSlash,
+    New,
 }

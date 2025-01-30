@@ -83,6 +83,9 @@ public class ExpressionTyper
     {
         switch (statement)
         {
+            case ArrayIndexAssignmentNode arrayIndexAssignment:
+                PopulateArrayIndexAssignment(arrayIndexAssignment);
+                break;
             case FuncCallStatementNode funcCall:
                 PopulateFuncCallStatement(funcCall);
                 break;
@@ -107,6 +110,13 @@ public class ExpressionTyper
             default:
                 throw new ArgumentOutOfRangeException(nameof(statement));
         }
+    }
+
+    private void PopulateArrayIndexAssignment(ArrayIndexAssignmentNode arrayIndexAssignment)
+    {
+        PopulateIdentifier(arrayIndexAssignment.Identifier);
+        PopulateExpression(arrayIndexAssignment.Index);
+        PopulateExpression(arrayIndexAssignment.Value);
     }
 
     private void PopulateFuncCallStatement(FuncCallStatementNode funcCall)
@@ -168,6 +178,12 @@ public class ExpressionTyper
     {
         switch (expression)
         {
+            case ArrayIndexAccessNode arrayIndexAccess:
+                PopulateArrayIndexAccess(arrayIndexAccess);
+                break;
+            case ArrayInitializerNode arrayInitializer:
+                PopulateArrayInitializer(arrayInitializer);
+                break;
             case BinaryExpressionNode binaryExpression:
                 PopulateBinaryExpression(binaryExpression);
                 break;
@@ -186,6 +202,30 @@ public class ExpressionTyper
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
         }
+    }
+
+    private void PopulateArrayIndexAccess(ArrayIndexAccessNode arrayIndexAccess)
+    {
+        PopulateExpression(arrayIndexAccess.Index);
+        PopulateIdentifier(arrayIndexAccess.Identifier);
+        
+        var variable = _variables.FirstOrDefault(v => v.Name == arrayIndexAccess.Identifier.Identifier);
+        if (variable == null)
+        {
+            throw new Exception($"Variable {arrayIndexAccess.Identifier} is not defined");
+        }
+
+        if (variable.Type is not ArrayType arrayType)
+        {
+            throw new Exception($"Variable {arrayIndexAccess.Identifier} is not an array type");
+        }
+
+        arrayIndexAccess.Type = arrayType.InnerType;
+    }
+
+    private void PopulateArrayInitializer(ArrayInitializerNode arrayInitializer)
+    {
+        arrayInitializer.Type = arrayInitializer.InnerType;
     }
 
     private void PopulateBinaryExpression(BinaryExpressionNode binaryExpression)

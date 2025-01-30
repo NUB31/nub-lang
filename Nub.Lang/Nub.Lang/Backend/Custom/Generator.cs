@@ -6,7 +6,8 @@ namespace Nub.Lang.Backend.Custom;
 public class Generator
 {
     private const string Entrypoint = "main";
-    
+    private const bool ZeroBasedIndexing = false;
+
     private readonly List<DefinitionNode> _definitions;
     private readonly SymbolTable _symbolTable;
     private readonly StringBuilder _builder;
@@ -69,6 +70,10 @@ public class Generator
         }
 
         _builder.AppendLine("""
+                            array_out_of_bounds:
+                                mov rax, 60
+                                mov rdi, 69
+                                syscall
                             
                             strcmp:
                                 xor rdx, rdx
@@ -204,6 +209,9 @@ public class Generator
     {
         switch (statement)
         {
+            case ArrayIndexAssignmentNode arrayIndexAssignment:
+                GenerateArrayIndexAssignment(arrayIndexAssignment, func);
+                break;
             case FuncCallStatementNode funcCallStatement:
                 GenerateFuncCall(funcCallStatement.FuncCall, func);
                 break;
@@ -228,6 +236,15 @@ public class Generator
             default:
                 throw new ArgumentOutOfRangeException(nameof(statement));
         }
+    }
+
+    private void GenerateArrayIndexAssignment(ArrayIndexAssignmentNode arrayIndexAssignment, LocalFunc func)
+    {
+        GenerateExpression(arrayIndexAssignment.Value, func);
+        _builder.AppendLine("    push rax");
+        GenerateArrayIndexPointerAccess(arrayIndexAssignment.Identifier, arrayIndexAssignment.Index, func);
+        _builder.AppendLine("    pop rdx");
+        _builder.AppendLine("    mov [rax], rdx");
     }
 
     private void GenerateIf(IfNode ifStatement, LocalFunc func)
@@ -298,6 +315,12 @@ public class Generator
     {
         switch (expression)
         {
+            case ArrayIndexAccessNode arrayIndexAccess:
+                GenerateArrayIndexAccess(arrayIndexAccess, func);
+                break;
+            case ArrayInitializerNode arrayInitializer:
+                GenerateArrayInitializer(arrayInitializer, func);
+                break;
             case BinaryExpressionNode binaryExpression:
                 GenerateBinaryExpression(binaryExpression, func);
                 break;
@@ -316,6 +339,28 @@ public class Generator
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
         }
+    }
+
+    private void GenerateArrayIndexAccess(ArrayIndexAccessNode arrayIndexAccess, LocalFunc func)
+    {
+        GenerateArrayIndexPointerAccess(arrayIndexAccess.Identifier, arrayIndexAccess.Index, func);
+        _builder.AppendLine("    mov rax, [rax]");
+    }
+
+    private void GenerateArrayInitializer(ArrayInitializerNode arrayInitializer, LocalFunc func)
+    {
+        _builder.AppendLine($"""
+                                mov rax, 9
+                                mov rdi, 0
+                                mov rsi, {8 + arrayInitializer.Length * 8}
+                                mov rdx, 3
+                                mov r10, 34
+                                mov r8, -1
+                                mov r9, 0
+                                syscall
+                                
+                                mov QWORD [rax], {arrayInitializer.Length}
+                            """);
     }
 
     private void GenerateBinaryExpression(BinaryExpressionNode binaryExpression, LocalFunc func)
@@ -575,5 +620,32 @@ public class Generator
         }
                 
         _builder.AppendLine("    syscall");
+    }
+
+    private void GenerateArrayIndexPointerAccess(IdentifierNode identifier, ExpressionNode index, LocalFunc func)
+    {
+        GenerateExpression(index, func);
+        _builder.AppendLine("    push rax");
+        GenerateIdentifier(identifier, func);
+        _builder.AppendLine("    pop rbx");
+        
+        // rcx now holds the length of the array which we can use to check bounds
+        _builder.AppendLine("    mov rcx, [rax]");
+        _builder.AppendLine("    cmp rbx, rcx");
+        if (ZeroBasedIndexing)
+        {
+            _builder.AppendLine("    jge array_out_of_bounds");
+            _builder.AppendLine("    cmp rbx, 0");
+        }
+        else
+        {
+            _builder.AppendLine("    jg array_out_of_bounds");
+            _builder.AppendLine("    cmp rbx, 1");
+        }
+        _builder.AppendLine("    jl array_out_of_bounds");
+
+        _builder.AppendLine("    inc rbx");
+        _builder.AppendLine("    shl rbx, 3");
+        _builder.AppendLine("    add rax, rbx");
     }
 }

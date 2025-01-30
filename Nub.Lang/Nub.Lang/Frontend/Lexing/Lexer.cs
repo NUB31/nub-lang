@@ -14,6 +14,7 @@ public class Lexer
         ["else"] = Symbol.Else,
         ["while"] = Symbol.While,
         ["return"] = Symbol.Return,
+        ["new"] = Symbol.New,
     };
 
     private static readonly Dictionary<char[], Symbol> Chians = new()

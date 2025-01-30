@@ -7,7 +7,7 @@ public class SymbolTable
 {
     private readonly List<Func> _funcDefinitions = [];
     private readonly List<GlobalVariable> _globalVariables = [];
-    private LabelFactory _labelFactory;
+    private readonly LabelFactory _labelFactory;
     
     public readonly Dictionary<string, string> Strings = [];
 

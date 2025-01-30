@@ -1,9 +1,10 @@
 import "core";
 
 func main() {
-    let i = 1;
-    while i <= 10 {
-        println("uwu");
-        i = i + 1;
-    }
+    let x = new Array<String>(2);
+    x[1] = "test1";
+    x[2] = "test2";
+    
+    println(x[1]);
+    println(x[2]);
 }
