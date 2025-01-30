@@ -1,5 +1,10 @@
 import "core";
 
+let KB = 1024;
+let MB = KB * 1024;
+let GB = MB * 1024;
+let TB = GB * 1024;
+
 func main() {
     println("test");
     println(true);

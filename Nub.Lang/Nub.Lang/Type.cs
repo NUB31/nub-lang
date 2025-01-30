@@ -16,7 +16,6 @@ public record PrimitiveType : Type
         var kind = value switch
         {
             "bool" => PrimitiveTypeKind.Bool,
-            "char" => PrimitiveTypeKind.Char,
             "int64" => PrimitiveTypeKind.Int64,
             "int32" => PrimitiveTypeKind.Int32,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
@@ -33,7 +32,6 @@ public record PrimitiveType : Type
 public enum PrimitiveTypeKind
 {
     Bool,
-    Char,
     Int64,
     Int32,
 }

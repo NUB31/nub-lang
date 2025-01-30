@@ -46,28 +46,14 @@ public class Generator
         {
             _builder.AppendLine($"extern {externFuncDefinition.Name}");
         }
-        
-        _builder.AppendLine();
-        _builder.AppendLine("section .bss");
-        foreach (var globalVariable in _definitions.OfType<GlobalVariableDefinitionNode>())
-        {
-            var symbol = _symbolTable.ResolveGlobalVariable(globalVariable.Name);
-            _builder.AppendLine($"    {symbol.Identifier}: resq 1");
-        }
 
         _builder.AppendLine();
         _builder.AppendLine("section .text");
-        _builder.AppendLine("_start:");
         
+        // TODO: Only add start label if main is present
         var main = _symbolTable.ResolveLocalFunc(Entrypoint, []);
         
-        foreach (var globalVariable in _definitions.OfType<GlobalVariableDefinitionNode>())
-        {
-            var symbol = _symbolTable.ResolveGlobalVariable(globalVariable.Name);
-            GenerateExpression(globalVariable.Value, main);
-            _builder.AppendLine($"    mov [{symbol.Identifier}], rax");
-        }
-
+        _builder.AppendLine("_start:");
         _builder.AppendLine($"    call {main.StartLabel}");
 
         _builder.AppendLine(main.ReturnType.HasValue
@@ -105,14 +91,73 @@ public class Generator
         
         _builder.AppendLine();
         _builder.AppendLine("section .data");
+        
         foreach (var str in _symbolTable.Strings)
         {
             _builder.AppendLine($"{str.Key}: db `{str.Value}`, 0");
+        }
+
+
+        Dictionary<string, string> completed = [];
+        foreach (var globalVariableDefinition in _definitions.OfType<GlobalVariableDefinitionNode>())
+        {
+            var variable = _symbolTable.ResolveGlobalVariable(globalVariableDefinition.Name);
+            var evaluated = EvaluateExpression(globalVariableDefinition.Value, completed);
+            _builder.AppendLine($"{variable.Identifier}: dq {evaluated}");
+            completed[variable.Name] = evaluated;
         }
         
         return _builder.ToString();
     }
 
+    private string EvaluateExpression(ExpressionNode expression, Dictionary<string, string> completed)
+    {
+        switch (expression)
+        {
+            case BinaryExpressionNode binaryExpression:
+            {
+                var left = EvaluateExpression(binaryExpression.Left, completed);
+                var right = EvaluateExpression(binaryExpression.Right, completed);
+                return binaryExpression.Operator switch
+                {
+                    BinaryExpressionOperator.Equal => bool.Parse(left) == bool.Parse(right) ? "1" : "0",
+                    BinaryExpressionOperator.NotEqual => bool.Parse(left) != bool.Parse(right) ? "1" : "0",
+                    BinaryExpressionOperator.GreaterThan => long.Parse(left) > long.Parse(right) ? "1" : "0",
+                    BinaryExpressionOperator.GreaterThanOrEqual => long.Parse(left) >= long.Parse(right) ? "1" : "0",
+                    BinaryExpressionOperator.LessThan => long.Parse(left) < long.Parse(right) ? "1" : "0",
+                    BinaryExpressionOperator.LessThanOrEqual => long.Parse(left) <= long.Parse(right) ? "1" : "0",
+                    BinaryExpressionOperator.Plus => (long.Parse(left) + long.Parse(right)).ToString(),
+                    BinaryExpressionOperator.Minus => (long.Parse(left) - long.Parse(right)).ToString(),
+                    BinaryExpressionOperator.Multiply => (long.Parse(left) * long.Parse(right)).ToString(),
+                    BinaryExpressionOperator.Divide => (long.Parse(left) / long.Parse(right)).ToString(),
+                    _ => throw new ArgumentOutOfRangeException()
+                };
+            }
+            case IdentifierNode identifier:
+            {
+                return completed[identifier.Identifier];
+            }
+            case LiteralNode literal:
+            {
+                if (literal.Type is not PrimitiveType primitiveType)
+                {
+                    throw new NotSupportedException("Global variable literals must be of a primitive type");
+                }
+
+                return primitiveType.Kind switch
+                {
+                    PrimitiveTypeKind.Bool => bool.Parse(literal.Literal) ? "1" : "0",
+                    PrimitiveTypeKind.Int64 or PrimitiveTypeKind.Int32 => $"{literal.Literal}",
+                    _ => throw new ArgumentOutOfRangeException()
+                };
+            }
+            default:
+            {
+                throw new InvalidOperationException("Global variables must have the ability yo be evaluated at compile time");
+            }
+        }
+    }
+    
     private void GenerateFuncDefinition(LocalFuncDefinitionNode node)
     {
         var func = _symbolTable.ResolveLocalFunc(node.Name, node.Parameters.Select(p => p.Type).ToList());
@@ -455,9 +500,6 @@ public class Generator
                 {
                     case PrimitiveTypeKind.Bool:
                         _builder.AppendLine($"    mov rax, {(bool.Parse(literal.Literal) ? "1" : "0")}");
-                        break;
-                    case PrimitiveTypeKind.Char:
-                        _builder.AppendLine($"    mov rax, '{literal.Literal}'");
                         break;
                     case PrimitiveTypeKind.Int64:
                         _builder.AppendLine($"    mov rax, {literal.Literal}");
