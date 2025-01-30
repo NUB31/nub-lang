@@ -368,7 +368,7 @@ public class Generator
         GenerateExpression(binaryExpression.Left, func);
         _builder.AppendLine("    push rax");
         GenerateExpression(binaryExpression.Right, func);
-        _builder.AppendLine("    mov rbx, rax");
+        _builder.AppendLine("    mov rcx, rax");
         _builder.AppendLine("    pop rax");
 
         switch (binaryExpression.Operator)
@@ -428,14 +428,14 @@ public class Generator
                 throw new InvalidOperationException($"Cannot compare type {type}");
             case ArrayType:
                 // compare pointers
-                _builder.AppendLine("    cmp rax, rbx");
+                _builder.AppendLine("    cmp rax, rcx");
                 break;
             case PrimitiveType:
-                _builder.AppendLine("    cmp rax, rbx");
+                _builder.AppendLine("    cmp rax, rcx");
                 break;
             case StringType:
                 _builder.AppendLine("    mov rdi, rax");
-                _builder.AppendLine("    mov rsi, rbx");
+                _builder.AppendLine("    mov rsi, rcx");
                 _builder.AppendLine("    call str_cmp");
                 break;
             default:
@@ -453,10 +453,10 @@ public class Generator
         switch (primitiveType.Kind)
         {
             case PrimitiveTypeKind.Int64:
-                _builder.AppendLine("    add rax, rbx");
+                _builder.AppendLine("    add rax, rcx");
                 break;
             case PrimitiveTypeKind.Int32:
-                _builder.AppendLine("    add eax, ebx");
+                _builder.AppendLine("    add eax, ecx");
                 break;
             default:
                 throw new InvalidOperationException($"Invalid type {primitiveType.Kind}");
@@ -473,10 +473,10 @@ public class Generator
         switch (primitiveType.Kind)
         {
             case PrimitiveTypeKind.Int64:
-                _builder.AppendLine("    sub rax, rbx");
+                _builder.AppendLine("    sub rax, rcx");
                 break;
             case PrimitiveTypeKind.Int32:
-                _builder.AppendLine("    sub eax, ebx");
+                _builder.AppendLine("    sub eax, ecx");
                 break;
             default:
                 throw new InvalidOperationException($"Invalid type {primitiveType.Kind}");
@@ -493,10 +493,10 @@ public class Generator
         switch (primitiveType.Kind)
         {
             case PrimitiveTypeKind.Int64:
-                _builder.AppendLine("    imul rbx");
+                _builder.AppendLine("    imul rcx");
                 break;
             case PrimitiveTypeKind.Int32:
-                _builder.AppendLine("    imul ebx");
+                _builder.AppendLine("    imul ecx");
                 break;
             default:
                 throw new InvalidOperationException($"Invalid type {primitiveType.Kind}");
@@ -514,11 +514,11 @@ public class Generator
         {
             case PrimitiveTypeKind.Int64:
                 _builder.AppendLine("    cqo");
-                _builder.AppendLine("    idiv rbx");
+                _builder.AppendLine("    idiv rcx");
                 break;
             case PrimitiveTypeKind.Int32:
                 _builder.AppendLine("    cdq");
-                _builder.AppendLine("    idiv ebx");
+                _builder.AppendLine("    idiv ecx");
                 break;
             default:
                 throw new InvalidOperationException($"Invalid type {primitiveType.Kind}");
@@ -627,25 +627,25 @@ public class Generator
         GenerateExpression(index, func);
         _builder.AppendLine("    push rax");
         GenerateIdentifier(identifier, func);
-        _builder.AppendLine("    pop rbx");
+        _builder.AppendLine("    pop rcx");
         
         // rcx now holds the length of the array which we can use to check bounds
         _builder.AppendLine("    mov rcx, [rax]");
-        _builder.AppendLine("    cmp rbx, rcx");
+        _builder.AppendLine("    cmp rcx, rcx");
         if (ZeroBasedIndexing)
         {
             _builder.AppendLine("    jge array_out_of_bounds");
-            _builder.AppendLine("    cmp rbx, 0");
+            _builder.AppendLine("    cmp rcx, 0");
         }
         else
         {
             _builder.AppendLine("    jg array_out_of_bounds");
-            _builder.AppendLine("    cmp rbx, 1");
+            _builder.AppendLine("    cmp rcx, 1");
         }
         _builder.AppendLine("    jl array_out_of_bounds");
 
-        _builder.AppendLine("    inc rbx");
-        _builder.AppendLine("    shl rbx, 3");
-        _builder.AppendLine("    add rax, rbx");
+        _builder.AppendLine("    inc rcx");
+        _builder.AppendLine("    shl rcx, 3");
+        _builder.AppendLine("    add rax, rcx");
     }
 }
