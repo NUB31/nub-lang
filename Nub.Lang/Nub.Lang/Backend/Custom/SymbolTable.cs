@@ -166,10 +166,18 @@ public abstract class Func
 
     public bool SignatureMatches(string name, List<Type> parameterTypes)
     {
-        return Name == name 
-               && Parameters.Count == parameterTypes.Count 
-               && Parameters.Where((p, i) => p.Type == parameterTypes.ElementAt(i)).Count() == parameterTypes.Count;
+        if (Name != name) return false;
+        if (Parameters.Count != parameterTypes.Count) return false;
+
+        for (var i = 0; i < parameterTypes.Count; i++)
+        {
+            if (!Parameters[i].Type.IsAssignableTo(parameterTypes[i])) return false;
+        }
+
+        return true;
     }
+    
+    public override string ToString() => $"{Name}({string.Join(", ", Parameters.Select(p => p.ToString()))}){(ReturnType.HasValue ? ": " + ReturnType.Value : "")}";
 }
 
 public class ExternFunc : Func
@@ -217,6 +225,4 @@ public class LocalFunc : Func
 
         return localVariable;
     }
-    
-    public override string ToString() => $"{Name}({string.Join(", ", Parameters.Select(p => p.ToString()))}){(ReturnType.HasValue ? ": " + ReturnType.Value : "")}";
 }

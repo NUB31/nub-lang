@@ -2,9 +2,5 @@ import "core";
 
 func main() {
     let x = new Array<String>(2);
-    x[1] = "test1";
-    x[2] = "test2";
-    
-    println(x[1]);
-    println(x[2]);
+    println(x == y);
 }

@@ -397,23 +397,6 @@ public class Parser
         
         switch (name)
         {
-            case "Func":
-            {
-                List<Type> typeArguments = [];
-                if (TryExpectSymbol(Symbol.LessThan))
-                {
-                    while (!TryExpectSymbol(Symbol.GreaterThan))
-                    {
-                        var type = ParseType();
-                        typeArguments.Add(type);
-                        TryExpectSymbol(Symbol.Comma);
-                    }
-                }
-
-                var returnType = Optional<Type>.OfNullable(typeArguments.LastOrDefault());
-
-                return new DelegateType(typeArguments.Take(typeArguments.Count - 1).ToList(), returnType);
-            }
             case "String":
             {
                 return new StringType();
@@ -424,6 +407,10 @@ public class Parser
                 var innerType = ParseType();
                 ExpectSymbol(Symbol.GreaterThan);
                 return new ArrayType(innerType);
+            }
+            case "Any":
+            {
+                return new AnyType();
             }
             default:
             {

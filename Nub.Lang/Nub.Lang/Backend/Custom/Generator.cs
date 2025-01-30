@@ -70,6 +70,7 @@ public class Generator
         }
 
         _builder.AppendLine("""
+                            
                             array_out_of_bounds:
                                 mov rax, 60
                                 mov rdi, 69
@@ -358,7 +359,6 @@ public class Generator
                                 mov r8, -1
                                 mov r9, 0
                                 syscall
-                                
                                 mov QWORD [rax], {arrayInitializer.Length}
                             """);
     }
@@ -424,8 +424,12 @@ public class Generator
     {
         switch (type)
         {
-            case DelegateType:
-                throw new NotSupportedException($"Comparison on type {type.GetType().Name} is not supported");
+            case AnyType:
+                throw new InvalidOperationException($"Cannot compare type {type}");
+            case ArrayType:
+                // compare pointers
+                _builder.AppendLine("    cmp rax, rbx");
+                break;
             case PrimitiveType:
                 _builder.AppendLine("    cmp rax, rbx");
                 break;
@@ -545,10 +549,6 @@ public class Generator
     {
         switch (literal.Type)
         {
-            case DelegateType:
-            {
-                throw new NotImplementedException();
-            }
             case StringType:
             {
                 var label = _symbolTable.DefineString(literal.Literal);
