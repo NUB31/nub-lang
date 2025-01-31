@@ -47,6 +47,7 @@ public class Parser
             Symbol.Let => ParseGlobalVariableDefinition(),
             Symbol.Func => ParseFuncDefinition(),
             Symbol.Extern => ParseExternFuncDefinition(),
+            Symbol.Struct => ParseStruct(),
             _ => throw new Exception("Unexpected symbol: " + keyword.Symbol)
         };
     }
@@ -110,6 +111,36 @@ public class Parser
         ExpectSymbol(Symbol.Semicolon);
         
         return new ExternFuncDefinitionNode(name.Value, parameters, returnType);
+    }
+
+    private StructDefinitionNode ParseStruct()
+    {
+        var name = ExpectIdentifier().Value;
+
+        ExpectSymbol(Symbol.OpenBrace);
+        
+        List<StructMember> variables = [];
+        
+        while (!TryExpectSymbol(Symbol.CloseBrace))
+        {
+            ExpectSymbol(Symbol.Let);
+            var variableName = ExpectIdentifier().Value;
+            ExpectSymbol(Symbol.Colon);
+            var variableType = ParseType();
+
+            var variableValue = Optional<ExpressionNode>.Empty();
+            
+            if (TryExpectSymbol(Symbol.Assign))
+            {
+                variableValue = ParseExpression();
+            }
+            
+            ExpectSymbol(Symbol.Semicolon);
+            
+            variables.Add(new StructMember(variableName, variableType, variableValue));
+        }
+        
+        return new StructDefinitionNode(name, variables);
     }
 
     private FuncParameter ParseFuncParameter()
@@ -346,14 +377,40 @@ public class Parser
                     case Symbol.New:
                     {
                         var type = ParseType();
-                        ExpectSymbol(Symbol.OpenParen);
-                        var size = ExpectLiteral();
-                        if (size.Type is not PrimitiveType { Kind: PrimitiveTypeKind.Int64 })
+
+                        switch (type)
                         {
-                            throw new Exception($"Array initializer size must be an {PrimitiveTypeKind.Int64}");
+                            // TODO: Parse arrays differently
+                            case ArrayType:
+                            {
+                                ExpectSymbol(Symbol.OpenParen);
+                                var size = ExpectLiteral();
+                                if (size.Type is not PrimitiveType { Kind: PrimitiveTypeKind.Int64 })
+                                {
+                                    throw new Exception($"Array initializer size must be an {PrimitiveTypeKind.Int64}");
+                                }
+                                ExpectSymbol(Symbol.CloseParen);
+                            
+                                return new ArrayInitializerNode(long.Parse(size.Value), type);
+                            }
+                            case StructType structType:
+                            {
+                                Dictionary<string, ExpressionNode> initializers = [];
+                                ExpectSymbol(Symbol.OpenBrace);
+                                while (!TryExpectSymbol(Symbol.CloseBrace))
+                                {
+                                    var name = ExpectIdentifier().Value;
+                                    ExpectSymbol(Symbol.Assign);
+                                    var value = ParseExpression();
+                                    TryExpectSymbol(Symbol.Comma);
+                                    initializers.Add(name, value);
+                                }
+                            
+                                return new StructInitializerNode(structType, initializers);
+                            }
+                            default:
+                                throw new Exception($"Type {type} cannot be initialized with the new keyword");
                         }
-                        ExpectSymbol(Symbol.CloseParen);
-                        return new ArrayInitializerNode(long.Parse(size.Value), type);
                     }
                     default:
                         throw new Exception($"Unknown symbol: {symbolToken.Symbol}");
@@ -408,7 +465,6 @@ public class Parser
     private Type ParseType()
     {
         var name = ExpectIdentifier().Value;
-        
         switch (name)
         {
             case "String":
@@ -428,7 +484,12 @@ public class Parser
             }
             default:
             {
-                return PrimitiveType.Parse(name);
+                if (PrimitiveType.TryParse(name, out var primitiveType))
+                {
+                    return primitiveType;
+                }
+                
+                return new StructType(name);
             }
         }
     }

@@ -15,6 +15,7 @@ public class ExpressionTyper
 {
     private readonly List<Func> _functions;
     private readonly List<GlobalVariableDefinitionNode> _variableDefinitions;
+    private readonly List<StructDefinitionNode> _classes;
     private readonly Stack<Variable> _variables;
 
     public ExpressionTyper(List<DefinitionNode> definitions)
@@ -22,6 +23,8 @@ public class ExpressionTyper
         _variables = new Stack<Variable>();
         _functions = [];
         _variableDefinitions = [];
+        
+        _classes = definitions.OfType<StructDefinitionNode>().ToList();
         
         var functions = definitions
             .OfType<LocalFuncDefinitionNode>()
@@ -41,6 +44,17 @@ public class ExpressionTyper
     public void Populate()
     {
         _variables.Clear();
+        
+        foreach (var @class in _classes)
+        {
+            foreach (var variable in @class.Members)
+            {
+                if (variable.Value.HasValue)
+                {
+                    PopulateExpression(variable.Value.Value);
+                }
+            }
+        }
         
         foreach (var variable in _variableDefinitions)
         {
@@ -199,6 +213,9 @@ public class ExpressionTyper
             case LiteralNode literal:
                 PopulateLiteral(literal);
                 break;
+            case StructInitializerNode structInitializer:
+                PopulateStructInitializer(structInitializer);
+                break;
             case SyscallExpressionNode syscall:
                 PopulateSyscallExpression(syscall);
                 break;
@@ -294,6 +311,16 @@ public class ExpressionTyper
     private static void PopulateLiteral(LiteralNode literal)
     {
         literal.Type = literal.LiteralType;
+    }
+
+    private void PopulateStructInitializer(StructInitializerNode structInitializer)
+    {
+        foreach (var initializer in structInitializer.Initializers)
+        {
+            PopulateExpression(initializer.Value);
+        }
+
+        structInitializer.Type = structInitializer.StructType;
     }
 
     private void PopulateSyscallExpression(SyscallExpressionNode syscall)

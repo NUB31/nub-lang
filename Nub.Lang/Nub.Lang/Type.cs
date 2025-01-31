@@ -1,4 +1,6 @@
-﻿namespace Nub.Lang;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Nub.Lang;
 
 public abstract class Type
 {
@@ -17,12 +19,14 @@ public abstract class Type
     protected abstract bool Equals(Type other);
     public abstract override int GetHashCode();
     
-    public static bool operator == (Type left, Type right)
+    public static bool operator == (Type? left, Type? right)
     {
+        if (left is null && right is null) return true;
+        if (left is null || right is null) return false;
         return ReferenceEquals(left, right) || left.Equals(right);
     }
 
-    public static bool operator !=(Type left, Type right) => !(left == right);
+    public static bool operator !=(Type? left, Type? right) => !(left == right);
 }
 
 public class AnyType : Type
@@ -32,13 +36,8 @@ public class AnyType : Type
     public override string ToString() => "Any";
 }
 
-public class PrimitiveType : Type
+public class PrimitiveType(PrimitiveTypeKind kind) : Type
 {
-    public PrimitiveType(PrimitiveTypeKind kind)
-    {
-        Kind = kind;
-    }
-
     // TODO: This should be looked at more in the future
     public override bool IsAssignableTo(Type otherType)
     {
@@ -56,20 +55,20 @@ public class PrimitiveType : Type
         return false;
     }
 
-    public static PrimitiveType Parse(string value)
+    public static bool TryParse(string value, [NotNullWhen(true)] out PrimitiveType? result)
     {
-        var kind = value switch
+        result = value switch
         {
-            "bool" => PrimitiveTypeKind.Bool,
-            "int64" => PrimitiveTypeKind.Int64,
-            "int32" => PrimitiveTypeKind.Int32,
-            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
+            "bool" => new PrimitiveType(PrimitiveTypeKind.Bool),
+            "int64" => new PrimitiveType(PrimitiveTypeKind.Int64),
+            "int32" => new PrimitiveType(PrimitiveTypeKind.Int32),
+            _ => null
         };
         
-        return new PrimitiveType(kind);
+        return result != null;
     }
-    
-    public PrimitiveTypeKind Kind { get; }
+
+    public PrimitiveTypeKind Kind { get; } = kind;
 
     protected override bool Equals(Type other) => other is PrimitiveType primitiveType && Kind == primitiveType.Kind;
     public override int GetHashCode() => Kind.GetHashCode();
@@ -90,14 +89,9 @@ public class StringType : Type
     public override string ToString() => "String";
 }
 
-public class ArrayType : Type
+public class ArrayType(Type innerType) : Type
 {
-    public ArrayType(Type innerType)
-    {
-        InnerType = innerType;
-    }
-
-    public Type InnerType { get; }
+    public Type InnerType { get; } = innerType;
 
     public override bool IsAssignableTo(Type otherType)
     {
@@ -108,4 +102,13 @@ public class ArrayType : Type
     protected override bool Equals(Type other) => other is ArrayType at && InnerType.Equals(at.InnerType);
     public override int GetHashCode() => HashCode.Combine(InnerType);
     public override string ToString() => $"Array<{InnerType}>";
+}
+
+public class StructType(string name) : Type
+{
+    public string Name { get; } = name;
+    
+    protected override bool Equals(Type other) => other is StructType classType && Name == classType.Name;
+    public override int GetHashCode() => Name.GetHashCode();
+    public override string ToString() => Name;
 }

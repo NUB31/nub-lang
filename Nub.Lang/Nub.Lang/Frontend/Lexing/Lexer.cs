@@ -17,6 +17,7 @@ public class Lexer
         ["continue"] = Symbol.Continue,
         ["return"] = Symbol.Return,
         ["new"] = Symbol.New,
+        ["struct"] = Symbol.Struct,
     };
 
     private static readonly Dictionary<char[], Symbol> Chians = new()

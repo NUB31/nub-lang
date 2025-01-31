@@ -16,7 +16,7 @@ public class Generator
     
     public Generator(List<DefinitionNode> definitions)
     {
-        _definitions = [];
+        _definitions = definitions;
         _builder = new StringBuilder();
         _labelFactory = new LabelFactory();
         _symbolTable = new SymbolTable(_labelFactory);
@@ -25,19 +25,16 @@ public class Generator
         foreach (var globalVariableDefinition in definitions.OfType<GlobalVariableDefinitionNode>())
         {
             _symbolTable.DefineGlobalVariable(globalVariableDefinition);
-            _definitions.Add(globalVariableDefinition);
         }
         
         foreach (var funcDefinitionNode in definitions.OfType<ExternFuncDefinitionNode>())
         {
             _symbolTable.DefineFunc(funcDefinitionNode);
-            _definitions.Add(funcDefinitionNode);
         }
     
         foreach (var funcDefinitionNode in definitions.OfType<LocalFuncDefinitionNode>())
         {
             _symbolTable.DefineFunc(funcDefinitionNode);
-            _definitions.Add(funcDefinitionNode);
         }
     }
 
@@ -53,7 +50,7 @@ public class Generator
         _builder.AppendLine();
         _builder.AppendLine("section .text");
         
-        // TODO: Only add start label if main is present
+        // TODO: Only add start label if entrypoint is present, otherwise assume library
         var main = _symbolTable.ResolveLocalFunc(Entrypoint, []);
         
         _builder.AppendLine("_start:");
@@ -102,16 +99,15 @@ public class Generator
         
         foreach (var str in _symbolTable.Strings)
         {
-            _builder.AppendLine($"{str.Key}: db `{str.Value}`, 0");
+            _builder.AppendLine($"    {str.Key}: db `{str.Value}`, 0");
         }
-
 
         Dictionary<string, string> completed = [];
         foreach (var globalVariableDefinition in _definitions.OfType<GlobalVariableDefinitionNode>())
         {
             var variable = _symbolTable.ResolveGlobalVariable(globalVariableDefinition.Name);
             var evaluated = EvaluateExpression(globalVariableDefinition.Value, completed);
-            _builder.AppendLine($"{variable.Identifier}: dq {evaluated}");
+            _builder.AppendLine($"    {variable.Identifier}: dq {evaluated}");
             completed[variable.Name] = evaluated;
         }
         
@@ -341,7 +337,7 @@ public class Generator
                 GenerateArrayIndexAccess(arrayIndexAccess, func);
                 break;
             case ArrayInitializerNode arrayInitializer:
-                GenerateArrayInitializer(arrayInitializer, func);
+                GenerateArrayInitializer(arrayInitializer);
                 break;
             case BinaryExpressionNode binaryExpression:
                 GenerateBinaryExpression(binaryExpression, func);
@@ -354,6 +350,9 @@ public class Generator
                 break;
             case LiteralNode literal:
                 GenerateLiteral(literal);
+                break;
+            case StructInitializerNode structInitializer:
+                GenerateStructInitializer(structInitializer, func);
                 break;
             case SyscallExpressionNode syscallExpression:
                 GenerateSyscall(syscallExpression.Syscall, func);
@@ -369,7 +368,7 @@ public class Generator
         _builder.AppendLine("    mov rax, [rax]");
     }
 
-    private void GenerateArrayInitializer(ArrayInitializerNode arrayInitializer, LocalFunc func)
+    private void GenerateArrayInitializer(ArrayInitializerNode arrayInitializer)
     {
         _builder.AppendLine($"    sub rsp, {8 + arrayInitializer.Length * 8}");
         _builder.AppendLine("    mov rax, rsp");
@@ -589,6 +588,45 @@ public class Generator
             default:
                 throw new ArgumentOutOfRangeException();
         }
+    }
+
+    private void GenerateStructInitializer(StructInitializerNode structInitializer, LocalFunc func)
+    {
+        var structDefinition = _definitions
+            .OfType<StructDefinitionNode>()
+            .FirstOrDefault(sd => sd.Name == structInitializer.StructType.Name);
+
+        if (structDefinition == null)
+        {
+            throw new Exception($"Struct {structInitializer.StructType} is not defined");
+        }
+        
+        _builder.AppendLine($"    add rsp, {structDefinition.Members.Count * 8}");
+
+        foreach (var initializer in structInitializer.Initializers)
+        {
+            GenerateExpression(initializer.Value, func);
+            var index = structDefinition.Members.FindIndex(sd => sd.Name == initializer.Key);
+            if (index == -1)
+            {
+                throw new Exception($"Member {initializer.Key} is not defined on struct {structInitializer.StructType}");
+            }
+
+            _builder.AppendLine($"    mov [rsp + {index * 8}], rax");
+        }
+
+        foreach (var uninitializedMember in structDefinition.Members.Where(m => !structInitializer.Initializers.ContainsKey(m.Name)))
+        {
+            if (!uninitializedMember.Value.HasValue)
+            {
+                throw new Exception($"Struct {structInitializer.StructType} must be initializer with member {uninitializedMember.Name}");
+            }
+            
+            GenerateExpression(uninitializedMember.Value.Value, func);
+            _builder.AppendLine($"    mov [rsp + {structDefinition.Members.IndexOf(uninitializedMember) * 8}], rax");
+        }
+        
+        _builder.AppendLine("    mov rax, rsp");
     }
 
     private void GenerateFuncCall(FuncCall funcCall, LocalFunc func)

@@ -1,6 +1,19 @@
 import "core";
 
 func main() {
+    let x = new Test
+    {
+        some_string = "test2",
+        some_int = 69,
+    };
+}
+
+struct Test {
+    let some_string: String;
+    let some_int: int64;
+}
+
+func example() {
     let some_string = "test";
     println(some_string);
     
