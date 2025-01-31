@@ -354,11 +354,53 @@ public class Generator
             case StructInitializerNode structInitializer:
                 GenerateStructInitializer(structInitializer, func);
                 break;
+            case StructMemberAccessorNode structMemberAccessor:
+                GenerateStructMemberAccessor(structMemberAccessor, func);
+                break;
             case SyscallExpressionNode syscallExpression:
                 GenerateSyscall(syscallExpression.Syscall, func);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
+        }
+    }
+
+    private void GenerateStructMemberAccessor(StructMemberAccessorNode structMemberAccessor, LocalFunc func)
+    {
+        var variable = func.ResolveLocalVariable(structMemberAccessor.Members[0]);
+
+        if (variable.Type is not StructType structType)
+        {
+            throw new Exception($"Cannot access struct member on {variable} since it is not a struct type");
+        }
+
+        _builder.AppendLine($"    mov rax, [rbp - {variable.Offset}]");
+        _builder.AppendLine("    mov rax, [rax]");
+
+        Type prevMemberType = structType;
+        for (var i = 1; i < structMemberAccessor.Members.Count; i++)
+        {
+            if (prevMemberType is not StructType prevMemberStructType)
+            {
+                throw new Exception($"Cannot access {structMemberAccessor.Members[i]} on type {prevMemberType} because it is not a struct type");
+            }
+            
+            var structDefinition = _definitions.OfType<StructDefinitionNode>().FirstOrDefault(sd => sd.Name == prevMemberStructType.Name);
+            if (structDefinition == null)
+            {
+                throw new Exception($"Struct {prevMemberStructType} is not defined");
+            }
+
+            var member = structDefinition.Members.FirstOrDefault(m => m.Name == structMemberAccessor.Members[i]);
+            if (member == null)
+            {
+                throw new Exception($"Struct {prevMemberStructType} has no member with name {structMemberAccessor.Members[i]}");
+            }
+
+            var offset = structDefinition.Members.IndexOf(member);
+            _builder.AppendLine($"    mov rax, [rax + {offset * 8}]");
+            
+            prevMemberType = member.Type;
         }
     }
 
@@ -601,7 +643,7 @@ public class Generator
             throw new Exception($"Struct {structInitializer.StructType} is not defined");
         }
         
-        _builder.AppendLine($"    add rsp, {structDefinition.Members.Count * 8}");
+        _builder.AppendLine($"    sub rsp, {structDefinition.Members.Count * 8}");
 
         foreach (var initializer in structInitializer.Initializers)
         {

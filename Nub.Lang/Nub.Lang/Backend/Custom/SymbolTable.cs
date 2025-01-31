@@ -137,6 +137,8 @@ public abstract class Variable(string name, Type type)
 {
     public string Name { get; } = name;
     public Type Type { get; } = type;
+
+    public override string ToString() => $"{Name}: {Type}";
 }
 
 public class LocalVariable(string name, Type type, int offset) : Variable(name, type)

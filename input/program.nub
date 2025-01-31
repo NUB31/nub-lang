@@ -3,12 +3,25 @@ import "core";
 func main() {
     let x = new Test
     {
-        some_string = "test2",
+        some_struct = new Test
+        {
+            some_struct = 0,
+            some_int = 420,
+            some_string = "blaze it"
+        },
         some_int = 69,
+        some_string = "nice"
     };
+    
+    println(x.some_int);
+    println(x.some_string);
+    
+    println(x.some_struct.some_int);
+    println(x.some_struct.some_string);
 }
 
 struct Test {
+    let some_struct: Test;
     let some_string: String;
     let some_int: int64;
 }

@@ -423,28 +423,61 @@ public class Parser
 
     private ExpressionNode ParseExpressionIdentifier(IdentifierToken identifier)
     {
-        if (TryExpectSymbol(Symbol.OpenBracket))
+        var token = Peek();
+        if (!token.HasValue)
         {
-            var index = ParseExpression();
-            ExpectSymbol(Symbol.CloseBracket);
-            return new ArrayIndexAccessNode(new IdentifierNode(identifier.Value), index);
+            return new IdentifierNode(identifier.Value);
         }
-        
-        if (TryExpectSymbol(Symbol.OpenParen))
-        {
-            List<ExpressionNode> parameters = [];
-            while (!TryExpectSymbol(Symbol.CloseParen))
-            {
-                parameters.Add(ParseExpression());
-                TryExpectSymbol(Symbol.Comma);
-            }
-            
-            if (identifier.Value == "syscall")
-            {
-                return new SyscallExpressionNode(new Syscall(parameters));
-            }
 
-            return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
+        switch (token.Value)
+        {
+            case SymbolToken symbolToken:
+            {
+                switch (symbolToken.Symbol)
+                {
+                    case Symbol.Period:
+                    {
+                        Next();
+                        List<string> members =
+                        [
+                            identifier.Value,
+                            ExpectIdentifier().Value
+                        ];
+
+                        while (TryExpectSymbol(Symbol.Period))
+                        {
+                            members.Add(ExpectIdentifier().Value);
+                        }
+
+                        return new StructMemberAccessorNode(members);
+                    }
+                    case Symbol.OpenBracket:
+                    {
+                        Next();
+                        var index = ParseExpression();
+                        ExpectSymbol(Symbol.CloseBracket);
+                        return new ArrayIndexAccessNode(new IdentifierNode(identifier.Value), index);
+                    }
+                    case Symbol.OpenParen:
+                    {
+                        Next();
+                        List<ExpressionNode> parameters = [];
+                        while (!TryExpectSymbol(Symbol.CloseParen))
+                        {
+                            parameters.Add(ParseExpression());
+                            TryExpectSymbol(Symbol.Comma);
+                        }
+
+                        if (identifier.Value == "syscall")
+                        {
+                            return new SyscallExpressionNode(new Syscall(parameters));
+                        }
+
+                        return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
+                    }
+                }
+                break;
+            }
         }
         
         return new IdentifierNode(identifier.Value);

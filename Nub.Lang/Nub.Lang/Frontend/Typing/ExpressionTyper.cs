@@ -15,7 +15,7 @@ public class ExpressionTyper
 {
     private readonly List<Func> _functions;
     private readonly List<GlobalVariableDefinitionNode> _variableDefinitions;
-    private readonly List<StructDefinitionNode> _classes;
+    private readonly List<StructDefinitionNode> _structDefinitions;
     private readonly Stack<Variable> _variables;
 
     public ExpressionTyper(List<DefinitionNode> definitions)
@@ -24,7 +24,7 @@ public class ExpressionTyper
         _functions = [];
         _variableDefinitions = [];
         
-        _classes = definitions.OfType<StructDefinitionNode>().ToList();
+        _structDefinitions = definitions.OfType<StructDefinitionNode>().ToList();
         
         var functions = definitions
             .OfType<LocalFuncDefinitionNode>()
@@ -45,7 +45,7 @@ public class ExpressionTyper
     {
         _variables.Clear();
         
-        foreach (var @class in _classes)
+        foreach (var @class in _structDefinitions)
         {
             foreach (var variable in @class.Members)
             {
@@ -216,6 +216,9 @@ public class ExpressionTyper
             case StructInitializerNode structInitializer:
                 PopulateStructInitializer(structInitializer);
                 break;
+            case StructMemberAccessorNode structMemberAccessor:
+                GenerateStructMemberAccessorNode(structMemberAccessor);
+                break;
             case SyscallExpressionNode syscall:
                 PopulateSyscallExpression(syscall);
                 break;
@@ -321,6 +324,55 @@ public class ExpressionTyper
         }
 
         structInitializer.Type = structInitializer.StructType;
+    }
+
+    // TODO: Fix this ugly ass code
+    private void GenerateStructMemberAccessorNode(StructMemberAccessorNode structMemberAccessor)
+    {
+        var variable = _variables.FirstOrDefault(v => v.Name == structMemberAccessor.Members[0]);
+        if (variable == null)
+        {
+            throw new Exception($"Variable {structMemberAccessor.Members[0]} is not defined");
+        }
+
+        if (variable.Type is not StructType variableType)
+        {
+            throw new Exception("Variable " + structMemberAccessor.Members[0] + " is not a struct");
+        }
+        
+        var definition = _structDefinitions.FirstOrDefault(sd => sd.Name == variableType.Name);
+        if (definition == null)
+        {
+            throw new Exception($"Struct {structMemberAccessor.Members[0]} is not defined");
+        }
+
+        for (var i = 1; i < structMemberAccessor.Members.Count - 1; i++)
+        {
+            var member = definition.Members.FirstOrDefault(m => m.Name == structMemberAccessor.Members[i]);
+            if (member == null)
+            {
+                throw new Exception($"Member {structMemberAccessor.Members[i]} does not exist on struct {definition.Name}");
+            }
+
+            if (member.Type is not StructType memberType)
+            {
+                throw new Exception($"Member {structMemberAccessor.Members[i]} on struct {definition.Name} is not a struct");
+            }
+            
+            definition = _structDefinitions.FirstOrDefault(sd => sd.Name == memberType.Name);
+            if (definition == null)
+            {
+                throw new Exception($"Struct {structMemberAccessor.Members[i]} is not defined");
+            }
+        }
+        
+        var tmp = definition.Members.FirstOrDefault(m => m.Name == structMemberAccessor.Members.Last());
+        if (tmp == null)
+        {
+            throw new Exception($"Member {structMemberAccessor.Members.Last()} does not exist on struct {definition.Name}");
+        }
+        
+        structMemberAccessor.Type = tmp.Type;
     }
 
     private void PopulateSyscallExpression(SyscallExpressionNode syscall)
