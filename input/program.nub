@@ -1,53 +1,21 @@
 import "core";
 
 func main() {
-    let x = new Test
-    {
-        some_struct = new Test
-        {
-            some_struct = 0,
-            some_int = 420,
-            some_string = "blaze it"
-        },
-        some_int = 69,
-        some_string = "nice"
-    };
-    
-    println(x.some_int);
-    println(x.some_string);
-    
-    println(x.some_struct.some_int);
-    println(x.some_struct.some_string);
-    
-    let x = new Array<String>(23);
-    
-    x[23] = "test";
-    
-    println(x[23]);
-    println(arr_size(x));
-}
-
-struct Test {
-    let some_struct: Test;
-    let some_string: String;
-    let some_int: int64;
-}
-
-func example() {
-    let some_string = "test";
-    println(some_string);
-    
-    let some_array = new Array<int64>(2);
-    some_array[1] = 123;
-    some_array[2] = 124;
-    
     let i = 1;
-    
-    println(some_array[1]);
-    println(some_array[2]);
-    
-    while i <= arr_size(some_array) {
-        println(some_array[i]);
+    while true {
+        let x = new Human
+        {
+            name = "test",
+            age = i
+        };
+        
+        println(x.age);
+        
         i = i + 1;
     }
+}
+
+struct Human {
+    let name: String;
+    let age: int64;
 }

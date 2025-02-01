@@ -78,17 +78,46 @@ public class SymbolTable
             variables.Add(new LocalVariable(parameter.Name, parameter.Type, offset));
         }
         
-        foreach (var statement in localFuncDefinition.Body.Statements)
+        ResolveBlockVariables(localFuncDefinition.Body, variables, offset);
+        
+        return variables;
+    }
+
+    private static int ResolveBlockVariables(BlockNode block, List<LocalVariable> variables, int offset)
+    {
+        foreach (var statement in block.Statements)
         {
-            if (statement is VariableAssignmentNode variableAssignment)
+            switch (statement)
             {
-                offset += 8;
-                variables.Add(new LocalVariable(variableAssignment.Name, variableAssignment.Value.Type, offset));
+                case IfNode ifStatement:
+                {
+                    offset += ResolveBlockVariables(ifStatement.Body, variables, offset);
+                    if (ifStatement.Else.HasValue)
+                    {
+                        ifStatement.Else.Value.Match
+                        (
+                            elseIfStatement => offset += ResolveBlockVariables(elseIfStatement.Body, variables, offset),
+                            elseStatement => offset += ResolveBlockVariables(elseStatement, variables, offset)
+                        );
+                    }
+                    break;
+                }
+                case WhileNode whileStatement:
+                {
+                    offset += ResolveBlockVariables(whileStatement.Body, variables, offset);
+                    break;
+                }
+                case VariableAssignmentNode variableAssignment:
+                {
+                    offset += 8;
+                    variables.Add(new LocalVariable(variableAssignment.Name, variableAssignment.Value.Type, offset));
+                    break;
+                }
             }
         }
 
-        return variables;
-    }
+        return offset;
+    }    
     
     public Func ResolveFunc(string name, List<Type> parameterTypes)
     {
