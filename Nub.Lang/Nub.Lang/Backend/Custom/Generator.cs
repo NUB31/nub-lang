@@ -70,11 +70,6 @@ public class Generator
 
         _builder.AppendLine("""
                             
-                            array_out_of_bounds:
-                                mov rax, 60
-                                mov rdi, 69
-                                syscall
-                            
                             str_cmp:
                                 xor rdx, rdx
                             .loop:
@@ -92,6 +87,19 @@ public class Generator
                             .equal:
                                 mov rax, 1
                                 ret
+                            """);
+        
+        _builder.AppendLine("""
+                            
+                            alloc_error:
+                                mov rax, 60
+                                mov rdi, 1
+                                syscall
+                            
+                            oob_error:
+                                mov rax, 60
+                                mov rdi, 139
+                                syscall
                             """);
         
         _builder.AppendLine();
@@ -375,7 +383,6 @@ public class Generator
         }
 
         _builder.AppendLine($"    mov rax, [rbp - {variable.Offset}]");
-        _builder.AppendLine("    mov rax, [rax]");
 
         Type prevMemberType = structType;
         for (var i = 1; i < structMemberAccessor.Members.Count; i++)
@@ -412,9 +419,8 @@ public class Generator
 
     private void GenerateArrayInitializer(ArrayInitializerNode arrayInitializer)
     {
-        _builder.AppendLine($"    sub rsp, {8 + arrayInitializer.Length * 8}");
-        _builder.AppendLine("    mov rax, rsp");
-        _builder.AppendLine($"    mov QWORD [rsp], {arrayInitializer.Length}");
+        Alloc(8 + arrayInitializer.Length * 8);
+        _builder.AppendLine($"    mov QWORD [rax], {arrayInitializer.Length}");
     }
 
     private void GenerateBinaryExpression(BinaryExpressionNode binaryExpression, LocalFunc func)
@@ -642,11 +648,13 @@ public class Generator
         {
             throw new Exception($"Struct {structInitializer.StructType} is not defined");
         }
-        
-        _builder.AppendLine($"    sub rsp, {structDefinition.Members.Count * 8}");
 
+        Alloc(structDefinition.Members.Count * 8);
+        _builder.AppendLine("    mov rcx, rax");
+        
         foreach (var initializer in structInitializer.Initializers)
         {
+            _builder.AppendLine("    push rcx");
             GenerateExpression(initializer.Value, func);
             var index = structDefinition.Members.FindIndex(sd => sd.Name == initializer.Key);
             if (index == -1)
@@ -654,7 +662,8 @@ public class Generator
                 throw new Exception($"Member {initializer.Key} is not defined on struct {structInitializer.StructType}");
             }
 
-            _builder.AppendLine($"    mov [rsp + {index * 8}], rax");
+            _builder.AppendLine("    pop rcx");
+            _builder.AppendLine($"    mov [rcx + {index * 8}], rax");
         }
 
         foreach (var uninitializedMember in structDefinition.Members.Where(m => !structInitializer.Initializers.ContainsKey(m.Name)))
@@ -664,11 +673,14 @@ public class Generator
                 throw new Exception($"Struct {structInitializer.StructType} must be initializer with member {uninitializedMember.Name}");
             }
             
+            _builder.AppendLine("    push rcx");
             GenerateExpression(uninitializedMember.Value.Value, func);
-            _builder.AppendLine($"    mov [rsp + {structDefinition.Members.IndexOf(uninitializedMember) * 8}], rax");
+            var index = structDefinition.Members.IndexOf(uninitializedMember);
+            _builder.AppendLine("    pop rcx");
+            _builder.AppendLine($"    mov [rcx + {index * 8}], rax");
         }
         
-        _builder.AppendLine("    mov rax, rsp");
+        _builder.AppendLine("    mov rax, rcx");
     }
 
     private void GenerateFuncCall(FuncCall funcCall, LocalFunc func)
@@ -727,18 +739,32 @@ public class Generator
         _builder.AppendLine("    cmp rdx, rcx");
         if (ZeroBasedIndexing)
         {
-            _builder.AppendLine("    jge array_out_of_bounds");
+            _builder.AppendLine("    jge oob_error");
             _builder.AppendLine("    cmp rdx, 0");
         }
         else
         {
-            _builder.AppendLine("    jg array_out_of_bounds");
+            _builder.AppendLine("    jg oob_error");
             _builder.AppendLine("    cmp rdx, 1");
         }
-        _builder.AppendLine("    jl array_out_of_bounds");
+        _builder.AppendLine("    jl oob_error");
 
         _builder.AppendLine("    inc rdx");
         _builder.AppendLine("    shl rdx, 3");
         _builder.AppendLine("    add rax, rdx");
+    }
+
+    private void Alloc(long bytes)
+    {
+        _builder.AppendLine("    mov rax, 9");
+        _builder.AppendLine("    mov rdi, 0");
+        _builder.AppendLine($"    mov rsi, {bytes}");
+        _builder.AppendLine("    mov rdx, 3");
+        _builder.AppendLine("    mov r10, 34");
+        _builder.AppendLine("    mov r8, -1");
+        _builder.AppendLine("    mov r9, 0");
+        _builder.AppendLine("    syscall");
+        _builder.AppendLine("    cmp rax, 0");
+        _builder.AppendLine("    je alloc_error");
     }
 }

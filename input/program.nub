@@ -18,6 +18,13 @@ func main() {
     
     println(x.some_struct.some_int);
     println(x.some_struct.some_string);
+    
+    let x = new Array<String>(23);
+    
+    x[23] = "test";
+    
+    println(x[22]);
+    println(arr_size(x));
 }
 
 struct Test {
