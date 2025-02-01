@@ -23,7 +23,7 @@ func main() {
     
     x[23] = "test";
     
-    println(x[22]);
+    println(x[23]);
     println(arr_size(x));
 }
 

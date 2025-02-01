@@ -70,7 +70,24 @@ public class Generator
 
         _builder.AppendLine("""
                             
-                            str_cmp:
+                            eb6e_alloc:
+                                mov rax, 9
+                                mov rsi, rdi
+                                mov rdi, 0
+                                mov rdx, 3
+                                mov r10, 34
+                                mov r8, -1
+                                mov r9, 0
+                                syscall
+                                cmp rax, -1
+                                je .error
+                                ret
+                            .error:
+                                mov rax, 60
+                                mov rdi, 1
+                                syscall
+                                
+                            eb6e_str_cmp:
                                 xor rdx, rdx
                             .loop:
                                 mov al, [rsi + rdx]
@@ -87,16 +104,8 @@ public class Generator
                             .equal:
                                 mov rax, 1
                                 ret
-                            """);
-        
-        _builder.AppendLine("""
-                            
-                            alloc_error:
-                                mov rax, 60
-                                mov rdi, 1
-                                syscall
-                            
-                            oob_error:
+                                
+                            eb6e_oob_error:
                                 mov rax, 60
                                 mov rdi, 139
                                 syscall
@@ -419,7 +428,8 @@ public class Generator
 
     private void GenerateArrayInitializer(ArrayInitializerNode arrayInitializer)
     {
-        Alloc(8 + arrayInitializer.Length * 8);
+        _builder.AppendLine($"    mov rdi, {8 + arrayInitializer.Length * 8}");
+        _builder.AppendLine("    call eb6e_alloc");
         _builder.AppendLine($"    mov QWORD [rax], {arrayInitializer.Length}");
     }
 
@@ -496,7 +506,7 @@ public class Generator
             case StringType:
                 _builder.AppendLine("    mov rdi, rax");
                 _builder.AppendLine("    mov rsi, rcx");
-                _builder.AppendLine("    call str_cmp");
+                _builder.AppendLine("    call eb6e_str_cmp");
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -649,7 +659,8 @@ public class Generator
             throw new Exception($"Struct {structInitializer.StructType} is not defined");
         }
 
-        Alloc(structDefinition.Members.Count * 8);
+        _builder.AppendLine($"    mov rdi, {structDefinition.Members.Count * 8}");
+        _builder.AppendLine("    call eb6e_alloc");
         _builder.AppendLine("    mov rcx, rax");
         
         foreach (var initializer in structInitializer.Initializers)
@@ -739,32 +750,18 @@ public class Generator
         _builder.AppendLine("    cmp rdx, rcx");
         if (ZeroBasedIndexing)
         {
-            _builder.AppendLine("    jge oob_error");
+            _builder.AppendLine("    jge eb6e_oob_error");
             _builder.AppendLine("    cmp rdx, 0");
         }
         else
         {
-            _builder.AppendLine("    jg oob_error");
+            _builder.AppendLine("    jg eb6e_oob_error");
             _builder.AppendLine("    cmp rdx, 1");
         }
-        _builder.AppendLine("    jl oob_error");
+        _builder.AppendLine("    jl eb6e_oob_error");
 
         _builder.AppendLine("    inc rdx");
         _builder.AppendLine("    shl rdx, 3");
         _builder.AppendLine("    add rax, rdx");
-    }
-
-    private void Alloc(long bytes)
-    {
-        _builder.AppendLine("    mov rax, 9");
-        _builder.AppendLine("    mov rdi, 0");
-        _builder.AppendLine($"    mov rsi, {bytes}");
-        _builder.AppendLine("    mov rdx, 3");
-        _builder.AppendLine("    mov r10, 34");
-        _builder.AppendLine("    mov r8, -1");
-        _builder.AppendLine("    mov r9, 0");
-        _builder.AppendLine("    syscall");
-        _builder.AppendLine("    cmp rax, 0");
-        _builder.AppendLine("    je alloc_error");
     }
 }
