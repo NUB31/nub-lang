@@ -41,10 +41,10 @@ public class Generator
     public string Generate()
     {
         _builder.AppendLine("global _start");
-        
         _builder.AppendLine("extern gc_init");
         _builder.AppendLine("extern gc_alloc");
         _builder.AppendLine("extern str_cmp");
+        
         foreach (var externFuncDefinition in _definitions.OfType<ExternFuncDefinitionNode>())
         {
             _builder.AppendLine($"extern {externFuncDefinition.Name}");
@@ -143,7 +143,7 @@ public class Generator
             }
             default:
             {
-                throw new InvalidOperationException("Global variables must have the ability yo be evaluated at compile time");
+                throw new InvalidOperationException("Global variables must be compile time consistant");
             }
         }
     }

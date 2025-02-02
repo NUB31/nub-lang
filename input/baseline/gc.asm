@@ -1,12 +1,14 @@
 global gc_init, gc_alloc
 
 section .bss
-    alloc_list: resq 1
-    stack_start: resq 1
-    total_alloc: resq 1
+    alloc_list:     resq 1
+    stack_start:    resq 1
 
 section .data
-    gc_threshold: dq 4096       ; default of 4096 bytes, this will scale when gc_collect is ran
+    gc_threshold_b: dq 4096     ; default of 4096 bytes, this will scale when gc_collect is ran
+    gc_threshold_c: dq 1024     ; default of 1024 allocations
+    total_alloc_b:    dq 0      ; counts the allocated bytes
+    total_alloc_c:    dq 0      ; count the amount of allocations
     
 section .text
 gc_init:
@@ -15,14 +17,20 @@ gc_init:
 
 gc_alloc:
     add rdi, 17                 ; add space for metadata
-    mov rdx, [total_alloc]      ; load total allocation
-    cmp rdx, [gc_threshold]     ; has total exceeded threshold?
-    jb .no_collect              ; no? skip
+    mov rdx, [total_alloc_b]    ; load total allocations in bytes
+    cmp rdx, [gc_threshold_b]   ; has total exceeded threshold?
+    jae .collect                ; yes? run gc
+    mov rdx, [total_alloc_c]    ; load total allocation count
+    cmp rdx, [gc_threshold_c]   ; has count exceeded threshold?
+    jae .collect                ; yes? run gc
+    jmp .collect_end
+.collect:
     push rdi
     call gc_collect
     pop rdi
-.no_collect:
-    add [total_alloc], rdi      ; save total allocation
+.collect_end:
+    add [total_alloc_b], rdi    ; update total allocated bytes
+    inc qword [total_alloc_c]   ; update total allocation count
     push rdi
     call sys_mmap               ; allocate size + metadata
     pop rdi
@@ -37,11 +45,12 @@ gc_alloc:
 gc_collect:
     call gc_mark_stack
     call gc_sweep
-    mov rdi, [total_alloc]          ; since we just swept, all the memory is in use
-    shl rdi, 1                      ; double the currently used memory
+    mov qword [total_alloc_c], 0        ; reset allocation count
+    mov rdi, [total_alloc_b]            ; since we just swept, all the memory is in use
+    shl rdi, 1                          ; double the currently used memory
     mov rsi, 4096
-    call max                        ; get the largest of total_alloc * 2 and 4096
-    mov qword [gc_threshold], rax   ; update threshold to new value
+    call max                            ; get the largest of total_alloc_b * 2 and 4096
+    mov qword [gc_threshold_b], rax     ; update threshold to new value
     ret
     
 gc_mark_stack:    
@@ -80,7 +89,7 @@ gc_mark:
 .scan_object:
     cmp rdx, rcx            ; done scanning?
     jae .done               ; yes? return
-    mov rdi, [rbx]          ; load value
+    mov rdi, [rdx]          ; load value
     call gc_mark
     add rdx, 8              ; next object
     jmp .scan_object
@@ -91,31 +100,31 @@ gc_sweep:
     mov rdi, [alloc_list]
     xor rsi, rsi
 .loop:
-    test rdi, rdi           ; reached end of list?
-    jz .done                ; yes? return
+    test rdi, rdi               ; reached end of list?
+    jz .done                    ; yes? return
     mov al, [rdi]
-    test al, al             ; is object marked?
-    jz .free                ; no? free it
-    mov byte [rdi], 0       ; yes? clear mark for next marking
+    test al, al                 ; is object marked?
+    jz .free                    ; no? free it
+    mov byte [rdi], 0           ; yes? clear mark for next marking
     mov rsi, rdi
-    mov rdi, [rdi + 9]      ; load the next object in the list
-    jmp .loop               ; repeat
+    mov rdi, [rdi + 9]          ; load the next object in the list
+    jmp .loop                   ; repeat
 .free:
-    mov rdx, [rdi + 9]      ; save address of next object in list
+    mov rdx, [rdi + 9]          ; save address of next object in list
     test rsi, rsi
     jz .remove_head
-    mov [rsi + 9], rdx      ; unlink the current node by setting the previous node's next to the next node's address
+    mov [rsi + 9], rdx          ; unlink the current node by setting the previous node's next to the next node's address
     jmp .free_memory
 .remove_head:
-    mov [alloc_list], rdx   ; update head node to be the next node
+    mov [alloc_list], rdx       ; update head node to be the next node
 .free_memory:
-    push rsi                ; save previous node since it will also be the previous node for the next item
-    push rdx                ; save next node
-    mov rsi, [rdi + 1]      ; get length of the object
-    sub [total_alloc], rsi  ; remove this allocation from total allocations
-    call sys_munmap         ; free the memory
-    pop rdi                 ; input for next iteration
-    pop rsi                 ; prev node for next iteration
+    push rsi                    ; save previous node since it will also be the previous node for the next item
+    push rdx                    ; save next node
+    mov rsi, [rdi + 1]          ; get length of the object
+    sub [total_alloc_b], rsi    ; remove this allocation from total allocations
+    call sys_munmap             ; free the memory
+    pop rdi                     ; input for next iteration
+    pop rsi                     ; prev node for next iteration
     jmp .loop
 .done:
     ret

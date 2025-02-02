@@ -377,10 +377,8 @@ public class Parser
                     case Symbol.New:
                     {
                         var type = ParseType();
-
                         switch (type)
                         {
-                            // TODO: Parse arrays differently
                             case ArrayType:
                             {
                                 ExpectSymbol(Symbol.OpenParen);
