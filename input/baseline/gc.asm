@@ -108,7 +108,7 @@ gc_sweep:
     jmp .free_memory
 .remove_head:
     mov [alloc_list], rdx   ; update head node to be the next node
-.free_memory
+.free_memory:
     push rsi                ; save previous node since it will also be the previous node for the next item
     push rdx                ; save next node
     mov rsi, [rdi + 1]      ; get length of the object
