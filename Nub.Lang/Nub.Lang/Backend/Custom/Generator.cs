@@ -42,6 +42,7 @@ public class Generator
     {
         _builder.AppendLine("global _start");
         
+        _builder.AppendLine("extern gc_init");
         _builder.AppendLine("extern gc_alloc");
         _builder.AppendLine("extern str_cmp");
         foreach (var externFuncDefinition in _definitions.OfType<ExternFuncDefinitionNode>())
@@ -51,11 +52,12 @@ public class Generator
 
         _builder.AppendLine();
         _builder.AppendLine("section .text");
-        
+
         // TODO: Only add start label if entrypoint is present, otherwise assume library
         var main = _symbolTable.ResolveLocalFunc(Entrypoint, []);
         
         _builder.AppendLine("_start:");
+        _builder.AppendLine("    call gc_init");
         _builder.AppendLine($"    call {main.StartLabel}");
 
         _builder.AppendLine(main.ReturnType.HasValue

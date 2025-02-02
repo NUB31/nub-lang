@@ -1,75 +1,28 @@
-global gc_init, gc_alloc, gc_free, gc_collect
-extern itoa
-extern str_len
+global gc_init, gc_alloc
 
 section .bss
     alloc_list: resq 1
     stack_start: resq 1
-
-; TMP
+    total_alloc: resq 1
 
 section .data
-    newline: db 10, 0
-    start_mark: db "Starting to mark", 0
-    marked: db "Marked object", 0
-
-; /TMP
+    gc_threshold: dq 4096                   ; default of 4096 bytes, this will scale when gc_collect is ran
     
 section .text
-
-; TMP
-
-print_int:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 8
-    mov [rbp - 8], rdi
-    mov rax, [rbp - 8]
-    push rax
-    pop rdi
-    call itoa
-    push rax
-    pop rdi
-    call print
-    mov rdi, newline
-    call print
-    mov rsp, rbp
-    pop rbp
-    ret
-    
-print:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 8
-    mov [rbp - 8], rdi
-    mov rax, 1
-    push rax
-    mov rax, 1
-    push rax
-    mov rax, [rbp - 8]
-    push rax
-    mov rax, [rbp - 8]
-    push rax
-    pop rdi
-    call str_len
-    push rax
-    pop rdx
-    pop rsi
-    pop rdi
-    pop rax
-    syscall
-    mov rsp, rbp
-    pop rbp
-    ret
-    
-; /TMP
-
 gc_init:
     mov [stack_start], rsp
     ret
 
 gc_alloc:
     add rdi, 17                 ; add space for metadata
+    mov rdx, [total_alloc]      ; load total allocation
+    cmp rdx, [gc_threshold]     ; has total exceeded threshold?
+    jb .no_collect              ; no? skip
+    push rdi
+    call gc_collect
+    pop rdi
+.no_collect:
+    add [total_alloc], rdi      ; save total allocation
     push rdi
     call sys_mmap               ; allocate size + metadata
     pop rdi
@@ -106,6 +59,7 @@ gc_free:
     mov [rsi + 9], rdx           ; Bypass rdi in the list
 .free_memory:
     mov rsi, [rdi + 1]           ; Get object size
+    sub [total_alloc], rsi       ; save total allocation
     call sys_munmap              ; Free memory
     ret
 .not_found:
@@ -114,6 +68,12 @@ gc_free:
 gc_collect:
     call gc_mark_stack
     call gc_sweep
+    ; next threshold will be double of used memory or 4096, whichever is higher
+    mov rdi, [total_alloc]
+    shl rdi, 1
+    mov rsi, 4096
+    call max
+    mov qword [gc_threshold], rax
     ret
     
 gc_mark_stack:    
@@ -147,7 +107,7 @@ gc_mark:
     jnz .done               ; yes? return
     mov byte [rdi - 17], 1  ; mark object
     mov rcx, [rdi + 1]      ; load object size
-    lea rdx, [rdi + 17]     ; start of data
+    mov rdx, rdi            ; start of data
     add rcx, rdx            ; end of data
 .scan_object:
     cmp rdx, rcx            ; done scanning?
@@ -168,13 +128,13 @@ gc_sweep:
     test al, al         ; is object marked?
     jz .free            ; no? free it
     mov byte [rdi], 0   ; yes? clear mark for next scan
-    mov rdi, [rdi + 9]
-    jmp .loop
+    mov rdi, [rdi + 9]  ; load the next object in the list
+    jmp .loop           ; repeat
 .free:
-    mov rcx, [rdi + 9]
+    mov rcx, [rdi + 9]  ; save address of next object in list
     push rcx
     call gc_free
-    pop rdi
+    pop rdi             ; [rdi + 9] is deallocated now, and would throw a segfault unless we used the stack
     jmp .loop
 .done:
     ret
@@ -206,3 +166,12 @@ sys_munmap:
     mov rax, 60
     mov rdi, 1
     syscall
+    
+max:
+    cmp rdi, rsi
+    jae .left
+    mov rax, rsi
+    ret
+.left:
+    mov rax, rdi
+    ret
