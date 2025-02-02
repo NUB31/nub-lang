@@ -1,14 +1,14 @@
 global gc_init, gc_alloc
 
 section .bss
-	alloc_list:     resq 1
-	stack_start:    resq 1
+	alloc_list:			resq 1
+	stack_start:		resq 1
 
 section .data
-	gc_threshold_b: dq 4096		; default of 4096 bytes, this will scale when gc_collect is ran
-	gc_threshold_c: dq 1024		; default of 1024 allocations
-	total_alloc_b:    dq 0		; counts the allocated bytes
-	total_alloc_c:    dq 0		; count the amount of allocations
+	gc_threshold_b: 	dq 4096		; default of 4096 bytes, this will scale when gc_collect is ran
+	gc_threshold_c: 	dq 1024		; default of 1024 allocations
+	total_alloc_b:		dq 0		; counts the allocated bytes
+	total_alloc_c:		dq 0		; count the amount of allocations
 
 section .text
 gc_init:
@@ -32,14 +32,14 @@ gc_alloc:
 	add [total_alloc_b], rdi	; update total allocated bytes
 	inc qword [total_alloc_c]   ; update total allocation count
 	push rdi
-	call sys_mmap               ; allocate size + metadata
+	call sys_mmap			   ; allocate size + metadata
 	pop rdi
-	mov byte [rax], 0           ; set mark to 0
-	mov qword [rax + 1], rdi    ; set total size of object (including metadata)
-	mov rsi, [alloc_list]       ; load first item in allocation list
-	mov qword [rax + 9], rsi    ; make current head of allocation list the next item in this object
-	mov [alloc_list], rax       ; update head of allocation list so it points to this object
-	add rax, 17                 ; skip metadata for return value
+	mov byte [rax], 0		   ; set mark to 0
+	mov qword [rax + 1], rdi	; set total size of object (including metadata)
+	mov rsi, [alloc_list]	   ; load first item in allocation list
+	mov qword [rax + 9], rsi	; make current head of allocation list the next item in this object
+	mov [alloc_list], rax	   ; update head of allocation list so it points to this object
+	add rax, 17				 ; skip metadata for return value
 	ret
 
 gc_collect:
@@ -53,7 +53,7 @@ gc_collect:
 	mov qword [gc_threshold_b], rax		; update threshold to new value
 	ret
 
-gc_mark_stack:    
+gc_mark_stack:	
 	mov r8, rsp				; load current stack pointer
 	mov r9, [stack_start]	; load start of stack
 .loop:
@@ -116,7 +116,7 @@ gc_sweep:
 	mov [rsi + 9], rdx			; unlink the current node by setting the previous node's next to the next node's address
 	jmp .free_memory
 .remove_head:
-	mov [alloc_list], rdx       ; update head node to be the next node
+	mov [alloc_list], rdx	   ; update head node to be the next node
 .free_memory:
 	push rsi					; save previous node since it will also be the previous node for the next item
 	push rdx					; save next node
