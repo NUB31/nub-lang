@@ -30,16 +30,16 @@ gc_alloc:
 	pop rdi
 .collect_end:
 	add [total_alloc_b], rdi	; update total allocated bytes
-	inc qword [total_alloc_c]   ; update total allocation count
+	inc qword [total_alloc_c]	; update total allocation count
 	push rdi
-	call sys_mmap			   ; allocate size + metadata
+	call sys_mmap				; allocate size + metadata
 	pop rdi
-	mov byte [rax], 0		   ; set mark to 0
+	mov byte [rax], 0			; set mark to 0
 	mov qword [rax + 1], rdi	; set total size of object (including metadata)
-	mov rsi, [alloc_list]	   ; load first item in allocation list
+	mov rsi, [alloc_list]		; load first item in allocation list
 	mov qword [rax + 9], rsi	; make current head of allocation list the next item in this object
-	mov [alloc_list], rax	   ; update head of allocation list so it points to this object
-	add rax, 17				 ; skip metadata for return value
+	mov [alloc_list], rax		; update head of allocation list so it points to this object
+	add rax, 17					; skip metadata for return value
 	ret
 
 gc_collect:
@@ -116,7 +116,7 @@ gc_sweep:
 	mov [rsi + 9], rdx			; unlink the current node by setting the previous node's next to the next node's address
 	jmp .free_memory
 .remove_head:
-	mov [alloc_list], rdx	   ; update head node to be the next node
+	mov [alloc_list], rdx		; update head node to be the next node
 .free_memory:
 	push rsi					; save previous node since it will also be the previous node for the next item
 	push rdx					; save next node
