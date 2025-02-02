@@ -1,6 +1,6 @@
 global str_len
-section .text
 
+section .text
 str_len:
     xor rax, rax
 .loop:

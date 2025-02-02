@@ -42,6 +42,8 @@ public class Generator
     {
         _builder.AppendLine("global _start");
         
+        _builder.AppendLine("extern gc_alloc");
+        _builder.AppendLine("extern str_cmp");
         foreach (var externFuncDefinition in _definitions.OfType<ExternFuncDefinitionNode>())
         {
             _builder.AppendLine($"extern {externFuncDefinition.Name}");
@@ -70,41 +72,6 @@ public class Generator
 
         _builder.AppendLine("""
                             
-                            eb6e_alloc:
-                                mov rax, 9
-                                mov rsi, rdi
-                                mov rdi, 0
-                                mov rdx, 3
-                                mov r10, 34
-                                mov r8, -1
-                                mov r9, 0
-                                syscall
-                                cmp rax, -1
-                                je .error
-                                ret
-                            .error:
-                                mov rax, 60
-                                mov rdi, 1
-                                syscall
-                                
-                            eb6e_str_cmp:
-                                xor rdx, rdx
-                            .loop:
-                                mov al, [rsi + rdx]
-                                mov bl, [rdi + rdx]
-                                inc rdx
-                                cmp al, bl
-                                jne .not_equal
-                                cmp al, 0
-                                je .equal
-                                jmp .loop
-                            .not_equal:
-                                mov rax, 0
-                                ret
-                            .equal:
-                                mov rax, 1
-                                ret
-                                
                             eb6e_oob_error:
                                 mov rax, 60
                                 mov rdi, 139
@@ -429,8 +396,8 @@ public class Generator
     private void GenerateArrayInitializer(ArrayInitializerNode arrayInitializer)
     {
         _builder.AppendLine($"    mov rdi, {8 + arrayInitializer.Length * 8}");
-        _builder.AppendLine("    call eb6e_alloc");
-        _builder.AppendLine($"    mov QWORD [rax], {arrayInitializer.Length}");
+        _builder.AppendLine("    call gc_alloc");
+        _builder.AppendLine($"    mov qword [rax], {arrayInitializer.Length}");
     }
 
     private void GenerateBinaryExpression(BinaryExpressionNode binaryExpression, LocalFunc func)
@@ -506,7 +473,7 @@ public class Generator
             case StringType:
                 _builder.AppendLine("    mov rdi, rax");
                 _builder.AppendLine("    mov rsi, rcx");
-                _builder.AppendLine("    call eb6e_str_cmp");
+                _builder.AppendLine("    call str_cmp");
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(type));
@@ -660,7 +627,7 @@ public class Generator
         }
 
         _builder.AppendLine($"    mov rdi, {structDefinition.Members.Count * 8}");
-        _builder.AppendLine("    call eb6e_alloc");
+        _builder.AppendLine("    call gc_alloc");
         _builder.AppendLine("    mov rcx, rax");
         
         foreach (var initializer in structInitializer.Initializers)

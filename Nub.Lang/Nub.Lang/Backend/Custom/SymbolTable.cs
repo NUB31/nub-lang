@@ -91,20 +91,20 @@ public class SymbolTable
             {
                 case IfNode ifStatement:
                 {
-                    offset += ResolveBlockVariables(ifStatement.Body, variables, offset);
+                    offset = ResolveBlockVariables(ifStatement.Body, variables, offset);
                     if (ifStatement.Else.HasValue)
                     {
                         ifStatement.Else.Value.Match
                         (
-                            elseIfStatement => offset += ResolveBlockVariables(elseIfStatement.Body, variables, offset),
-                            elseStatement => offset += ResolveBlockVariables(elseStatement, variables, offset)
+                            elseIfStatement => offset = ResolveBlockVariables(elseIfStatement.Body, variables, offset),
+                            elseStatement => offset = ResolveBlockVariables(elseStatement, variables, offset)
                         );
                     }
                     break;
                 }
                 case WhileNode whileStatement:
                 {
-                    offset += ResolveBlockVariables(whileStatement.Body, variables, offset);
+                    offset = ResolveBlockVariables(whileStatement.Body, variables, offset);
                     break;
                 }
                 case VariableAssignmentNode variableAssignment:
