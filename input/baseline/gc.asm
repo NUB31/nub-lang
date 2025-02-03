@@ -16,7 +16,7 @@ gc_init:
 	ret
 
 gc_alloc:
-	add rdi, 17					; add space for metadata
+	add rdi, 24					; add space for metadata
 	mov rdx, [total_alloc_b]	; load total allocations in bytes
 	cmp rdx, [gc_threshold_b]	; has total exceeded threshold?
 	jae .collect				; yes? run gc
@@ -35,11 +35,11 @@ gc_alloc:
 	call sys_mmap				; allocate size + metadata
 	pop rdi
 	mov byte [rax], 0			; set mark to 0
-	mov qword [rax + 1], rdi	; set total size of object (including metadata)
+	mov qword [rax + 8], rdi	; set total size of object (including metadata)
 	mov rsi, [alloc_list]		; load first item in allocation list
-	mov qword [rax + 9], rsi	; make current head of allocation list the next item in this object
+	mov qword [rax + 16], rsi	; make current head of allocation list the next item in this object
 	mov [alloc_list], rax		; update head of allocation list so it points to this object
-	add rax, 17					; skip metadata for return value
+	add rax, 24					; skip metadata for return value
 	ret
 
 gc_collect:
@@ -73,17 +73,17 @@ gc_mark:
 .loop:
 	test rsi, rsi			; reached end of list?
 	jz .done				; yes? return
-	lea rdx, [rsi + 17]
+	lea rdx, [rsi + 24]
 	cmp rdx, rdi			; no? is this the input object?
 	je .mark_object			; yes? mark it
-	mov rsi, [rsi + 9]		; no? next item
+	mov rsi, [rsi + 16]		; no? next item
 	jmp .loop
 .mark_object:
 	mov al, [rdi]			; load mark
 	test al, al				; already marked?
 	jnz .done				; yes? return
-	mov byte [rdi - 17], 1	; mark object
-	mov rcx, [rdi + 1]		; load object size
+	mov byte [rdi - 24], 1	; mark object
+	mov rcx, [rdi + 8]		; load object size
 	mov rdx, rdi			; start of data
 	add rcx, rdx			; end of data
 .scan_object:
@@ -107,20 +107,20 @@ gc_sweep:
 	jz .free					; no? free it
 	mov byte [rdi], 0			; yes? clear mark for next marking
 	mov rsi, rdi
-	mov rdi, [rdi + 9]			; load the next object in the list
+	mov rdi, [rdi + 16]			; load the next object in the list
 	jmp .loop					; repeat
 .free:
-	mov rdx, [rdi + 9]			; save address of next object in list
+	mov rdx, [rdi + 16]			; save address of next object in list
 	test rsi, rsi
 	jz .remove_head
-	mov [rsi + 9], rdx			; unlink the current node by setting the previous node's next to the next node's address
+	mov [rsi + 16], rdx			; unlink the current node by setting the previous node's next to the next node's address
 	jmp .free_memory
 .remove_head:
 	mov [alloc_list], rdx		; update head node to be the next node
 .free_memory:
 	push rsi					; save previous node since it will also be the previous node for the next item
 	push rdx					; save next node
-	mov rsi, [rdi + 1]			; get length of the object
+	mov rsi, [rdi + 8]			; get length of the object
 	sub [total_alloc_b], rsi	; remove this allocation from total allocations
 	call sys_munmap				; free the memory
 	pop rdi						; input for next iteration
