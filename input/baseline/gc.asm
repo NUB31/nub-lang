@@ -1,8 +1,8 @@
 global gc_init, gc_alloc
 
 section .bss
-	alloc_list:			resq 1
-	stack_start:		resq 1
+	alloc_list:			resq 1		; head of alloc list
+	stack_start:		resq 1		; start of stack
 
 section .data
 	gc_threshold_b: 	dq 4096		; default of 4096 bytes, this will scale when gc_collect is ran
