@@ -5,6 +5,7 @@ section .bss
 	alloc_list_head:	resq 1	; metadata size: 24
 	free_list_head:		resq 1	; metadata size: 16
 	stack_start:		resq 1
+	free_list_size:		resq 1
 
 section .data
 	gc_bytes_allocated:		dq 0								; bytes allocated since the last gc cycle
@@ -14,6 +15,7 @@ section .data
 	gc_next_threshold:		db "    The next threshold is ", 0
 	gc_allocated_bytes:		db " allocated bytes", 0
 	gc_mark_done_text:		db "    Marking done", 0
+	free_list_size_text:	db "free has a size of ", 0
 
 section .text
 gc_init:
@@ -71,6 +73,7 @@ gc_alloc:
 	mov rdx, [rdx + 8]			; load head.next
 	mov [free_list_head], rdx	; mov head.next into head
 .unlink_done:
+	dec qword [free_list_size]
 	sub [rsi], rdi				; reduce available space of block by the allocated space
 	mov rdx, [rsi]				; load the available space excluding the newly allocated space
 	lea rax, [rsi + rdx + 16]	; load the address of the newly allocated space
@@ -213,20 +216,54 @@ insert_into_free:
 	jz .insert_tail				; if at end of the list, insert at tail
 	cmp rdi, r9
 	ja .next					; if input > next continue
-	mov [rdi + 8], r9
-	mov [rsi + 8], rdi			; insert node between current and next
+	mov [rdi + 8], r9			; input.next = next
+	mov [rsi + 8], rdi			; current.next = input
+	mov rdi, rsi
+	inc qword [free_list_size]
+	call merge
 	ret
 .insert_head:
 	mov [rdi + 8], rsi			; set old head to input.next
 	mov [free_list_head], rdi	; set head to input
+	mov rdi, [free_list_head]
+	inc qword [free_list_size]
+	call merge
 	ret
 .insert_tail:
 	mov qword [rdi + 8], 0		; set input.tail to null
 	mov [rsi + 8], rdi			; add input to current.next
+	inc qword [free_list_size]
 	ret
 .next:
 	mov rsi, r9
 	jmp .loop
+	
+; rdi: current
+merge:
+	mov rsi, [rdi + 8]
+	test rsi, rsi
+	jz .skip
+	mov rdx, [rdi]
+	lea rdx, [rdi + rdx + 16]
+	cmp rdx, rsi
+	jne .skip
+	push rdi
+	mov rdi, free_list_size_text
+	call printstr
+	mov rdi, [free_list_size]
+	call printint
+	call endl
+	pop rdi
+	
+	mov rdx, [rsi]
+	add rsi, 16
+	add [rdi], rdx
+	mov rdx, [rsi + 8]
+	mov [rdi + 8], rdx
+	mov rsi, rdx
+	call merge
+.skip:
+	ret
 
 sys_mmap:
 	mov rax, 9
