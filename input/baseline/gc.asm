@@ -6,16 +6,17 @@ section .bss
 	free_list_head:		resq 1	; metadata size: 16
 	stack_start:		resq 1
 	free_list_size:		resq 1
+	mark_count:			resq 1
 
 section .data
 	gc_bytes_allocated:		dq 0								; bytes allocated since the last gc cycle
 	gc_trigger_threshold:	dq 1024 * 1024 * 8					; initial gc trigger threshold in bytes (adjusts dynamically)
-	gc_start_text:			db "Running gc after ", 0
-	gc_sweep_done_text:		db "    Sweep done. We no have ", 0
-	gc_next_threshold:		db "    The next threshold is ", 0
-	gc_allocated_bytes:		db " allocated bytes", 0
-	gc_mark_done_text:		db "    Marking done", 0
-	free_list_size_text:	db "free has a size of ", 0
+	txt_start_collect:		db "Running gc after ", 0
+	txt_sweep_done:			db "    Sweep done. We now have ", 0
+	txt_next_threshold:		db "    The next threshold is ", 0
+	txt_allocated_bytes:	db " allocated bytes", 0
+	txt_marking_done:		db "    Marking done. Objects marked is ", 0
+	txt_free_list_size:		db "    Free list size is ", 0
 
 section .text
 gc_init:
@@ -53,7 +54,8 @@ gc_alloc:
 	call sys_mmap
 	pop rsi
 	sub rsi, 16
-	mov qword [rax], rsi			; update metadata to page size - metadata
+	mov qword [rax], rsi			; set size of object to page size - metadata
+	mov qword [rax + 8], 0			; ensure that next pointer is null
 	push rax
 	mov rdi, rax
 	call insert_into_free
@@ -68,12 +70,13 @@ gc_alloc:
 	mov rdx, [rsi + 8]			; load next node
 	mov [r8 + 8], rdx			; link next node to last node's next
 	jmp .unlink_done
+	dec qword [free_list_size]
 .unlink_head:
 	mov rdx, [free_list_head]	; load head
 	mov rdx, [rdx + 8]			; load head.next
 	mov [free_list_head], rdx	; mov head.next into head
-.unlink_done:
 	dec qword [free_list_size]
+.unlink_done:
 	sub [rsi], rdi				; reduce available space of block by the allocated space
 	mov rdx, [rsi]				; load the available space excluding the newly allocated space
 	lea rax, [rsi + rdx + 16]	; load the address of the newly allocated space
@@ -87,27 +90,22 @@ gc_alloc:
 	ret
 
 gc_collect:
-	mov rdi, gc_start_text
+	mov rdi, txt_start_collect
 	call printstr
 	mov rdi, [gc_bytes_allocated]
 	call printint
-	mov rdi, gc_allocated_bytes
+	mov rdi, txt_allocated_bytes
 	call printstr
 	call endl
 	
 	call gc_mark_stack
-	
-	mov rdi, gc_mark_done_text
-	call printstr
-	call endl
-	
 	call gc_sweep
 	
-	mov rdi, gc_sweep_done_text
+	mov rdi, txt_sweep_done
 	call printstr
 	mov rdi, [gc_bytes_allocated]
 	call printint
-	mov rdi, gc_allocated_bytes
+	mov rdi, txt_allocated_bytes
 	call printstr
 	call endl
 	
@@ -118,16 +116,23 @@ gc_collect:
 	mov [gc_trigger_threshold], rax 
 	mov qword [gc_bytes_allocated], 0
 	
-	mov rdi, gc_next_threshold
+	mov rdi, txt_next_threshold
 	call printstr
 	mov rdi, [gc_trigger_threshold]
 	call printint
-	mov rdi, gc_allocated_bytes
+	mov rdi, txt_allocated_bytes
 	call printstr
+	call endl
+	
+	mov rdi, txt_free_list_size
+	call printstr
+	mov rdi, [free_list_size]
+	call printint
 	call endl
 	ret
 
 gc_mark_stack:
+	mov qword [mark_count], 0
 	mov r8, rsp				; load current stack pointer
 	mov r9, [stack_start]	; load start of stack
 .loop:
@@ -138,34 +143,41 @@ gc_mark_stack:
 	lea r8, [r8 + 8]		; next item in stack
 	jmp .loop
 .done:
+	mov rdi, txt_marking_done
+	call printstr
+	mov rdi, [mark_count]
+	call printint
+	call endl
 	ret
 
 gc_mark:
-	test rdi, rdi				; is input null?
-	jz .done					; yes? return
-	mov rsi, [alloc_list_head]	; load start of allocation list
+	test rdi, rdi
+	jz .done					; if stack item is null, return
+	mov rsi, [alloc_list_head]
 .loop:
-	test rsi, rsi				; reached end of list?
-	jz .done					; yes? return
-	lea rdx, [rsi + 24]
-	cmp rdx, rdi				; no? is this the input object?
-	je .mark_object				; yes? mark it
-	mov rsi, [rsi + 16]			; no? next item
+	test rsi, rsi
+	jz .done					; return if end of list is reached
+	lea rdx, [rsi + 24]			; input value does not include metadata
+	cmp rdx, rdi
+	je .mark_object				; if match is found, mark the object
+	mov rsi, [rsi + 16]			; load next item and repeat
 	jmp .loop
 .mark_object:
+	inc qword [mark_count]
 	mov al, [rdi]				; load mark
 	test al, al					; already marked?
 	jnz .done					; yes? return
 	mov byte [rdi - 24], 1		; mark object
-	mov rcx, [rdi + 8]			; load object size
-	mov rdx, rdi				; start of data
-	add rcx, rdx				; end of data
+	mov rcx, [rdi - 16]			; load object size
+	lea rcx, [rdi + rcx]		; end of object
 .scan_object:
-	cmp rdx, rcx				; done scanning?
-	jae .done					; yes? return
-	mov rdi, [rdx]				; load value
+	cmp rdi, rcx
+	jge .done
+	push rdi
+	mov rdi, [rdi]
 	call gc_mark
-	add rdx, 8					; next object
+	pop rdi
+	lea rdi, [rdi + 8]
 	jmp .scan_object
 .done:
 	ret
@@ -196,9 +208,13 @@ gc_sweep:
 .unlink_done:
 	push r8							; save previous node since it will also be the previous node for the next item
 	push r9							; save next node
-	mov rdx, [rdi + 8]				; load the size of the object
-	add rdx, 24						; adjust for metadata size
+	mov rdx, [rdi + 8]				; load current size
+	add rdx, 24						; add metadata size back
 	sub [gc_bytes_allocated], rdx	; adjust allocated bytes
+	mov rdx, [rdi + 8]				; load current size
+	add rdx, 8						; adjust for smaller metadata in free list
+	mov [rdi], rdx					; save new size in correct position
+	mov qword [rdi + 8], 0				; set next to null
 	call insert_into_free
 	pop rdi							; input for next iteration
 	pop r8							; prev node for next iteration
@@ -215,17 +231,19 @@ insert_into_free:
 	test r9, r9
 	jz .insert_tail				; if at end of the list, insert at tail
 	cmp rdi, r9
-	ja .next					; if input > next continue
+	jbe .insert_between			; if input < next insert between current and next
+	mov rsi, r9
+	jmp .loop
+.insert_between:
 	mov [rdi + 8], r9			; input.next = next
 	mov [rsi + 8], rdi			; current.next = input
-	mov rdi, rsi
 	inc qword [free_list_size]
+	mov rdi, rsi
 	call merge
 	ret
 .insert_head:
-	mov [rdi + 8], rsi			; set old head to input.next
-	mov [free_list_head], rdi	; set head to input
-	mov rdi, [free_list_head]
+	mov [rdi + 8], rsi
+	mov [free_list_head], rdi
 	inc qword [free_list_size]
 	call merge
 	ret
@@ -233,36 +251,26 @@ insert_into_free:
 	mov qword [rdi + 8], 0		; set input.tail to null
 	mov [rsi + 8], rdi			; add input to current.next
 	inc qword [free_list_size]
+	mov rdi, rsi
+	call merge
 	ret
-.next:
-	mov rsi, r9
-	jmp .loop
 	
-; rdi: current
 merge:
 	mov rsi, [rdi + 8]
 	test rsi, rsi
-	jz .skip
+	jz .return
 	mov rdx, [rdi]
 	lea rdx, [rdi + rdx + 16]
 	cmp rdx, rsi
-	jne .skip
-	push rdi
-	mov rdi, free_list_size_text
-	call printstr
-	mov rdi, [free_list_size]
-	call printint
-	call endl
-	pop rdi
-	
+	jne .return	
+	dec qword [free_list_size]
 	mov rdx, [rsi]
-	add rsi, 16
+	add rdx, 16
 	add [rdi], rdx
 	mov rdx, [rsi + 8]
 	mov [rdi + 8], rdx
-	mov rsi, rdx
-	call merge
-.skip:
+	jmp merge
+.return:
 	ret
 
 sys_mmap:
