@@ -6,10 +6,8 @@ func main() {
         let x = new Human
         {
             name = "test",
-            age = i
+            age = 34958743
         };
-        
-        println(x.age);
         
         i = i + 1;
     }

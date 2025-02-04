@@ -13,4 +13,7 @@ nasm -g -felf64 ../input/core/itoa.asm -o itoa.o
 # program
 nasm -g -felf64 out.asm -o out.o
 
-ld -o out str_len.o arr_size.o itoa.o alloc.o gc.o str_cmp.o out.o
+# tmp
+nasm -g -felf64 ../input/util.asm -o util.o
+
+ld -o out out.o gc.o alloc.o str_cmp.o str_len.o arr_size.o itoa.o util.o
