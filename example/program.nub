@@ -1,19 +1,16 @@
 import "core";
 
+struct Human {
+    let name: String;
+    let age: int64;
+}
+
 func main() {
-    let i = 1;
     while true {
         let x = new Human
         {
             name = "test",
             age = 34958743
         };
-        
-        i = i + 1;
     }
-}
-
-struct Human {
-    let name: String;
-    let age: int64;
 }

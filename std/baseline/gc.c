@@ -1,38 +1,35 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/mman.h>
-#include <unistd.h>
 
-/* Constants */
-#define GC_INITIAL_THRESHOLD (1024 * 1024 * 8)  // 8MB initial threshold
-#define GC_MIN_ALLOC 4096                       // Minimum allocation size
+#define MINIMUM_THRESHOLD (1024 * 1024 * 8)
+#define MINIMUM_BLOCK_SIZE 4096
 
-/* Allocation metadata structures */
 typedef struct alloc_block {
-    uint8_t mark;              // Mark bit for GC
-    uint8_t padding[7];        // Padding for alignment
-    int64_t size;              // Size of the allocation
-    struct alloc_block* next;  // Next allocation in the list
+    uint64_t mark;
+    uint64_t size;
+    struct alloc_block* next;
 } alloc_block_t;
 
 typedef struct free_block {
-    int64_t size;             // Size of the free block
-    struct free_block* next;  // Next free block in the list
+    uint64_t size;
+    struct free_block* next;
 } free_block_t;
 
-/* Global variables */
 static alloc_block_t* alloc_list_head = NULL;
 static free_block_t* free_list_head = NULL;
 static void* stack_start = NULL;
 static int64_t free_list_size = 0;
 static int64_t mark_count = 0;
 
-/* GC metrics */
-static int64_t gc_bytes_allocated = 0;
-static int64_t gc_trigger_threshold = GC_INITIAL_THRESHOLD;
+/* Bytes allocated since last collect */
+static int64_t bytes_allocated = 0;
+/* Threshold for next collect */
+static int64_t trigger_threshold = MINIMUM_THRESHOLD;
 
-/* Forward declarations */
 static void* sys_mmap(size_t size);
+static void* get_sp(void);
 static void gc_collect(void);
 static void gc_mark(void* ptr);
 static void gc_mark_stack(void);
@@ -41,23 +38,19 @@ static int64_t max(int64_t a, int64_t b);
 static void insert_into_free(free_block_t* block);
 static void merge(free_block_t* block);
 
-/* Initialize the garbage collector */
 void gc_init(void) {
-    // Save the current stack pointer as the start of the stack
-    volatile unsigned long var = 0;
-    stack_start = (void*)((unsigned long)&var + 4);
+    stack_start = get_sp();
 }
 
 /* Allocate memory with garbage collection */
 void* gc_alloc(int64_t size) {
     size += sizeof(alloc_block_t);  // Adjust for metadata size
 
-    // Check if we need to trigger garbage collection
-    if (gc_bytes_allocated > gc_trigger_threshold) {
+    if (bytes_allocated > trigger_threshold) {
         gc_collect();
     }
 
-    gc_bytes_allocated += size;  // Adjust allocation counter
+    bytes_allocated += size;
 
     // Search free list for a suitable block
     free_block_t* current = free_list_head;
@@ -74,7 +67,7 @@ void* gc_alloc(int64_t size) {
 
     if (current == NULL) {
         // No suitable block found, allocate a new one
-        int64_t alloc_size = max(size, GC_MIN_ALLOC);
+        int64_t alloc_size = max(size, MINIMUM_BLOCK_SIZE);
         void* memory = sys_mmap(alloc_size);
 
         free_block_t* new_block = (free_block_t*)memory;
@@ -128,21 +121,16 @@ void* gc_alloc(int64_t size) {
 
 /* Run garbage collection */
 static void gc_collect(void) {
-    printf("Reached threshold of %ld bytes. Starting GC\n", gc_bytes_allocated);
     gc_mark_stack();
-    printf("\tMarking done. Objects marked is %ld\n", mark_count);
     gc_sweep();
-    printf("\tSweep done. We now have %ld allocated bytes\n", gc_bytes_allocated);
-    gc_trigger_threshold = max(gc_bytes_allocated * 2, GC_INITIAL_THRESHOLD);
-    gc_bytes_allocated = 0;
-    printf("\tThe next threshold is %ld allocated bytes\n", gc_trigger_threshold);
-    printf("\tFree list size is %ld\n", free_list_size);
+    trigger_threshold = max(bytes_allocated * 2, MINIMUM_THRESHOLD);
+    bytes_allocated = 0;
 }
 
-/* Mark phase of GC - scan stack for pointers */
 static void gc_mark_stack(void) {
     mark_count = 0;
-    void** current = (void**)&current;  // Approximate current stack position
+
+    void** current = get_sp();
     void** end = (void**)stack_start;
 
     while (current < end) {
@@ -153,23 +141,20 @@ static void gc_mark_stack(void) {
 
 /* Mark a single object and recursively mark its contents */
 static void gc_mark(void* ptr) {
-    if (ptr == NULL)
+    if (ptr == NULL) {
         return;
+    }
 
-    // Check if ptr points to a valid allocation
     alloc_block_t* block = alloc_list_head;
     while (block != NULL) {
         void* block_data = (void*)(block + 1);
         if (block_data == ptr) {
-            // Found the block, mark it if not already marked
             if (block->mark == 0) {
                 mark_count++;
                 block->mark = 1;
 
-                // Recursively mark all pointers in the object
                 void** p = (void**)block_data;
                 void** end = (void**)((char*)block_data + block->size);
-
                 while (p < end) {
                     gc_mark(*p);
                     p++;
@@ -181,14 +166,12 @@ static void gc_mark(void* ptr) {
     }
 }
 
-/* Sweep phase of GC - free unmarked objects */
 static void gc_sweep(void) {
     alloc_block_t* current = alloc_list_head;
     alloc_block_t* prev = NULL;
 
     while (current != NULL) {
         if (current->mark == 0) {
-            // Unmarked object, remove it from the allocation list
             alloc_block_t* next = current->next;
 
             if (prev == NULL) {
@@ -197,10 +180,8 @@ static void gc_sweep(void) {
                 prev->next = next;
             }
 
-            // Adjust allocated bytes counter
-            gc_bytes_allocated -= (current->size + sizeof(alloc_block_t));
+            bytes_allocated -= (current->size + sizeof(alloc_block_t));
 
-            // Add to free list
             free_block_t* free_block = (free_block_t*)current;
             free_block->size = current->size + sizeof(alloc_block_t) - sizeof(free_block_t);
             free_block->next = NULL;
@@ -209,7 +190,6 @@ static void gc_sweep(void) {
 
             current = next;
         } else {
-            // Marked object, unmark it for next GC cycle
             current->mark = 0;
             prev = current;
             current = current->next;
@@ -243,35 +223,42 @@ static void insert_into_free(free_block_t* block) {
     merge(current);
 }
 
-/* Merge a block with any adjacent blocks */
 static void merge(free_block_t* block) {
     while (block->next != NULL) {
         char* block_end = (char*)block + block->size + sizeof(free_block_t);
-
         if (block_end == (char*)block->next) {
-            // Blocks are adjacent, merge them
             free_list_size--;
             block->size += block->next->size + sizeof(free_block_t);
             block->next = block->next->next;
         } else {
-            // No more adjacent blocks
             break;
         }
     }
 }
 
-/* Helper to map memory from the system */
 static void* sys_mmap(size_t size) {
     void* result = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if (result == MAP_FAILED) {
-        _exit(1);  // Exit on failure
+        perror("[sys_mmap] mmap failed");
+        exit(1);
     }
 
     return result;
 }
 
-/* Return maximum of two values */
 static int64_t max(int64_t a, int64_t b) {
-    return (a > b) ? a : b;
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+void* get_sp(void) {
+    volatile unsigned long var = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-local-addr"
+    return (void*)((unsigned long)&var + 4);
+#pragma GCC diagnostic pop
 }
