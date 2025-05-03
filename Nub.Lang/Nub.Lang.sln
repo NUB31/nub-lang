@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nub.Lang", "Nub.Lang\Nub.Lang.csproj", "{5047E21F-590D-4CB3-AFF3-064316485009}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nub.Core", "Nub.Core\Nub.Core.csproj", "{903F2D49-4F69-4287-A709-EFC68BDD9654}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{5047E21F-590D-4CB3-AFF3-064316485009}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5047E21F-590D-4CB3-AFF3-064316485009}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5047E21F-590D-4CB3-AFF3-064316485009}.Release|Any CPU.Build.0 = Release|Any CPU
+		{903F2D49-4F69-4287-A709-EFC68BDD9654}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{903F2D49-4F69-4287-A709-EFC68BDD9654}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{903F2D49-4F69-4287-A709-EFC68BDD9654}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{903F2D49-4F69-4287-A709-EFC68BDD9654}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
