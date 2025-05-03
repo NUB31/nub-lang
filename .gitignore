@@ -33,6 +33,4 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
-output/*.o
-output/out
-output/out.asm
+out
