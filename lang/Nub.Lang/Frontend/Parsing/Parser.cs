@@ -43,22 +43,11 @@ public class Parser
         var keyword = ExpectSymbol();
         return keyword.Symbol switch
         {
-            Symbol.Let => ParseGlobalVariableDefinition(),
             Symbol.Func => ParseFuncDefinition(),
             Symbol.Extern => ParseExternFuncDefinition(),
             Symbol.Struct => ParseStruct(),
             _ => throw new Exception("Unexpected symbol: " + keyword.Symbol)
         };
-    }
-
-    private GlobalVariableDefinitionNode ParseGlobalVariableDefinition()
-    {
-        var name = ExpectIdentifier();
-        ExpectSymbol(Symbol.Assign);
-        var value = ParseExpression();
-        ExpectSymbol(Symbol.Semicolon);
-
-        return new GlobalVariableDefinitionNode(name.Value, value);
     }
 
     private LocalFuncDefinitionNode ParseFuncDefinition()

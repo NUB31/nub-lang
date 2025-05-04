@@ -13,7 +13,6 @@ public class Func(string name, List<FuncParameter> parameters, Optional<BlockNod
 public class ExpressionTyper
 {
     private readonly List<Func> _functions;
-    private readonly List<GlobalVariableDefinitionNode> _variableDefinitions;
     private readonly List<StructDefinitionNode> _structDefinitions;
     private readonly Stack<Variable> _variables;
 
@@ -21,7 +20,6 @@ public class ExpressionTyper
     {
         _variables = new Stack<Variable>();
         _functions = [];
-        _variableDefinitions = [];
         
         _structDefinitions = definitions.OfType<StructDefinitionNode>().ToList();
         
@@ -37,7 +35,6 @@ public class ExpressionTyper
         
         _functions.AddRange(functions);
         _functions.AddRange(externFunctions);
-        _variableDefinitions.AddRange(definitions.OfType<GlobalVariableDefinitionNode>());
     }
 
     public void Populate()
@@ -53,12 +50,6 @@ public class ExpressionTyper
                     PopulateExpression(variable.Value.Value);
                 }
             }
-        }
-        
-        foreach (var variable in _variableDefinitions)
-        {
-            PopulateExpression(variable.Value);
-            _variables.Push(new Variable(variable.Name, variable.Value.Type));
         }
         
         foreach (var function in _functions)

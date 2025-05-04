@@ -4,195 +4,129 @@ namespace Nub.Lang.Backend;
 
 public class SymbolTable
 {
-    private readonly List<Func> _funcDefinitions = [];
-    private readonly List<GlobalVariable> _globalVariables = [];
-    private readonly LabelFactory _labelFactory;
-    
-    public readonly Dictionary<string, string> Strings = [];
+    public static SymbolTable Create(IEnumerable<DefinitionNode> program)
+    {
+        var externFuncDefs = new List<ExternFuncDef>();
+        var localFuncDefs = new List<LocalFuncDef>();
 
-    public SymbolTable(LabelFactory labelFactory)
-    {
-        _labelFactory = labelFactory;
-    }
-    
-    public string DefineString(string value)
-    {
-        var label = _labelFactory.Create();
-        Strings.Add(label, value);
-        return label;
-    }
-    
-    public void DefineGlobalVariable(GlobalVariableDefinitionNode globalVariableDefinition)
-    {
-        var identifier =  _labelFactory.Create();
-        _globalVariables.Add(new GlobalVariable(globalVariableDefinition.Name, globalVariableDefinition.Value.Type, identifier));
-    }
-    
-    public void DefineFunc(ExternFuncDefinitionNode externFuncDefinition)
-    {
-        var existing = _funcDefinitions
-            .FirstOrDefault(f => f
-                .SignatureMatches
-                (
-                    externFuncDefinition.Name, 
-                    externFuncDefinition.Parameters.Select(p => p.Type).ToList()
-                ));
-        
-        if (existing != null)
+        foreach (var node in program)
         {
-            throw new Exception($"Func {existing} is already defined");
-        }
-        
-        _funcDefinitions.Add(new ExternFunc(externFuncDefinition.Name, externFuncDefinition.Name, externFuncDefinition.Parameters, externFuncDefinition.ReturnType));
-    }
-    
-    public void DefineFunc(LocalFuncDefinitionNode localFuncDefinition)
-    {
-        var existing = _funcDefinitions
-            .FirstOrDefault(f => f
-                .SignatureMatches
-                (
-                    localFuncDefinition.Name, 
-                    localFuncDefinition.Parameters.Select(p => p.Type).ToList()
-                ));
-        
-        if (existing != null)
-        {
-            throw new Exception($"Func {existing} is already defined");
-        }
-        
-        var startLabel = _labelFactory.Create();
-        var endLabel = _labelFactory.Create();
-        _funcDefinitions.Add(new LocalFunc(localFuncDefinition.Name, startLabel, endLabel, localFuncDefinition.Parameters, localFuncDefinition.ReturnType, _globalVariables.Concat<Variable>(ResolveFuncVariables(localFuncDefinition)).ToList()));
-    }
-    
-    private static List<LocalVariable> ResolveFuncVariables(LocalFuncDefinitionNode localFuncDefinition)
-    {
-        var offset = 0;
-        List<LocalVariable> variables = [];
-
-        foreach (var parameter in localFuncDefinition.Parameters)
-        {
-            offset += 8;
-            variables.Add(new LocalVariable(parameter.Name, parameter.Type, offset));
-        }
-        
-        ResolveBlockVariables(localFuncDefinition.Body, variables, offset);
-        
-        return variables;
-    }
-
-    private static int ResolveBlockVariables(BlockNode block, List<LocalVariable> variables, int offset)
-    {
-        foreach (var statement in block.Statements)
-        {
-            switch (statement)
+            switch (node)
             {
-                case IfNode ifStatement:
+                case ExternFuncDefinitionNode externFuncDefinitionNode:
                 {
-                    offset = ResolveBlockVariables(ifStatement.Body, variables, offset);
-                    if (ifStatement.Else.HasValue)
+                    var parameters = externFuncDefinitionNode.Parameters.Select(parameter => new Variable(parameter.Name, parameter.Type)).ToList();
+                    externFuncDefs.Add(new ExternFuncDef
                     {
-                        ifStatement.Else.Value.Match
-                        (
-                            elseIfStatement => offset = ResolveBlockVariables(elseIfStatement.Body, variables, offset),
-                            elseStatement => offset = ResolveBlockVariables(elseStatement, variables, offset)
-                        );
+                        Name = externFuncDefinitionNode.Name,
+                        Parameters = parameters,
+                        ReturnType = externFuncDefinitionNode.ReturnType
+                    });
+                    break;
+                }
+                case LocalFuncDefinitionNode localFuncDefinitionNode:
+                {
+                    var parameters = localFuncDefinitionNode.Parameters.Select(parameter => new Variable(parameter.Name, parameter.Type)).ToList();
+                    var localVariables = new List<Variable>();
+
+                    FindVariables(localFuncDefinitionNode.Body);
+
+                    localFuncDefs.Add(new LocalFuncDef
+                    {
+                        Name = localFuncDefinitionNode.Name,
+                        Parameters = parameters,
+                        LocalVariables = localVariables,
+                        ReturnType = localFuncDefinitionNode.ReturnType
+                    });
+                    break;
+
+                    void FindVariables(BlockNode blockNode)
+                    {
+                        foreach (var statement in blockNode.Statements)
+                        {
+                            switch (statement)
+                            {
+                                case IfNode ifNode:
+                                {
+                                    FindVariables(ifNode.Body);
+                                    break;
+                                }
+                                case WhileNode whileNode:
+                                {
+                                    FindVariables(whileNode.Body);
+                                    break;
+                                }
+                                case VariableAssignmentNode variableAssignmentNode:
+                                {
+                                    localVariables.Add(new Variable(variableAssignmentNode.Name, variableAssignmentNode.Value.Type));
+                                    break;
+                                }
+                            }
+                        }
                     }
-                    break;
                 }
-                case WhileNode whileStatement:
+                case StructDefinitionNode structDefinitionNode:
                 {
-                    offset = ResolveBlockVariables(whileStatement.Body, variables, offset);
-                    break;
+                    throw new NotImplementedException();
                 }
-                case VariableAssignmentNode variableAssignment:
+                default:
                 {
-                    offset += 8;
-                    variables.Add(new LocalVariable(variableAssignment.Name, variableAssignment.Value.Type, offset));
-                    break;
+                    throw new ArgumentOutOfRangeException(nameof(node));
                 }
             }
         }
 
-        return offset;
-    }    
-    
-    public Func ResolveFunc(string name, List<NubType> parameterTypes)
+        return new SymbolTable(externFuncDefs, localFuncDefs);
+    }
+
+    private readonly List<ExternFuncDef> _externFuncDefs;
+    private readonly List<LocalFuncDef> _localFuncDefs;
+
+    private SymbolTable(List<ExternFuncDef> externFuncDefs, List<LocalFuncDef> localFuncDefs)
     {
-        var func = _funcDefinitions.FirstOrDefault(f => f.SignatureMatches(name, parameterTypes));
-        if (func == null)
+        _externFuncDefs = externFuncDefs;
+        _localFuncDefs = localFuncDefs;
+    }
+
+    public FuncDef ResolveFunc(string name, List<NubType> parameters)
+    {
+        var matching = _externFuncDefs.Concat<FuncDef>(_localFuncDefs).Where(funcDef => funcDef.SignatureMatches(name, parameters)).ToArray();
+        return matching.Length switch
         {
-            throw new Exception($"Func {name}({string.Join(", ", parameterTypes)}) is not defined");
+            0 => throw new Exception($"Could not resolve a func with signature {name}({string.Join(", ", parameters)})"),
+            > 1 => throw new Exception($"Multiple functions matches the signature {name}({string.Join(", ", parameters)})"),
+            _ => matching[0]
+        };
+    }
+
+    public LocalFuncDef ResolveLocalFunc(string name, List<NubType> parameters)
+    {
+        var funcDef = ResolveFunc(name, parameters);
+        if (funcDef is LocalFuncDef localFuncDef)
+        {
+            return localFuncDef;
         }
 
-        return func;
+        throw new Exception($"Could not resolve a local func with signature {name}({string.Join(", ", parameters)})");
     }
-    
-    public LocalFunc ResolveLocalFunc(string name, List<NubType> parameterTypes)
+
+    public ExternFuncDef ResolveExternFunc(string name, List<NubType> parameters)
     {
-        var func = ResolveFunc(name, parameterTypes);
-        if (func is not LocalFunc localFunc)
+        var funcDef = ResolveFunc(name, parameters);
+        if (funcDef is ExternFuncDef externFuncDef)
         {
-            throw new Exception($"Func {func} is not a local func");
-        }
-        return localFunc;
-    }
-    
-    public ExternFunc ResolveExternFunc(string name, List<NubType> parameterTypes)
-    {
-        var func = ResolveFunc(name, parameterTypes);
-        if (func is not ExternFunc externFunc)
-        {
-            throw new Exception($"Func {func} is not an extern func");
-        }
-        return externFunc;
-    }
-    
-    public GlobalVariable ResolveGlobalVariable(string name)
-    {
-        var variable = _globalVariables.FirstOrDefault(v => v.Name == name);
-        if (variable == null)
-        {
-            throw new Exception($"Global variable {name} is not defined");
+            return externFuncDef;
         }
 
-        return variable;
+        throw new Exception($"Could not resolve a extern func with signature {name}({string.Join(", ", parameters)})");
     }
 }
 
-public abstract class Variable(string name, NubType type)
+public abstract class FuncDef
 {
-    public string Name { get; } = name;
-    public NubType Type { get; } = type;
-
-    public override string ToString() => $"{Name}: {Type}";
-}
-
-public class LocalVariable(string name, NubType type, int offset) : Variable(name, type)
-{
-    public int Offset { get; } = offset;
-}
-
-public class GlobalVariable(string name, NubType type, string identifier) : Variable(name, type)
-{
-    public string Identifier { get; } = identifier;
-}
-
-public abstract class Func
-{
-    protected Func(string name, string startLabel, List<FuncParameter> parameters, Optional<NubType> returnType)
-    {
-        Name = name;
-        Parameters = parameters;
-        ReturnType = returnType;
-        StartLabel = startLabel;
-    }
-
-    public string Name { get; }
-    public string StartLabel { get; }
-    public List<FuncParameter> Parameters { get; }
-    public Optional<NubType> ReturnType { get; }
+    public required string Name { get; init; }
+    public required List<Variable> Parameters { get; init; }
+    public required Optional<NubType> ReturnType { get; init; }
 
     public bool SignatureMatches(string name, List<NubType> parameterTypes)
     {
@@ -206,53 +140,24 @@ public abstract class Func
 
         return true;
     }
-    
-    public override string ToString() => $"{Name}({string.Join(", ", Parameters.Select(p => p.ToString()))}){(ReturnType.HasValue ? ": " + ReturnType.Value : "")}";
 }
 
-public class ExternFunc : Func
+public sealed class LocalFuncDef : FuncDef
 {
-    public ExternFunc(string name, string startLabel, List<FuncParameter> parameters, Optional<NubType> returnType) : base(name, startLabel, parameters, returnType)
+    public required List<Variable> LocalVariables { get; set; }
+
+    public override string ToString()
     {
+        return $"func {Name}({string.Join(", ", Parameters.Select(p => p.ToString()))}){(ReturnType.HasValue ? ": " + ReturnType.Value : "")}";
     }
 }
 
-public class LocalFunc : Func
+public sealed class ExternFuncDef : FuncDef;
+
+public sealed class Variable(string name, NubType type)
 {
-    public LocalFunc(string name, string startLabel, string endLabel, List<FuncParameter> parameters, Optional<NubType> returnType, List<Variable> variables) : base(name, startLabel, parameters, returnType)
-    {
-        EndLabel = endLabel;
-        Variables = variables;
-    }
+    public string Name { get; } = name;
+    public NubType Type { get; } = type;
 
-    public string EndLabel { get; }
-    public List<Variable> Variables { get; }
-    public int StackAllocation => Variables.OfType<LocalVariable>().Sum(variable => variable.Offset);
-
-    public Variable ResolveVariable(string name)
-    {
-        var variable = Variables.FirstOrDefault(v => v.Name == name);
-        if (variable == null)
-        {
-            throw new Exception($"Variable {name} is not defined");
-        }
-
-        return variable;
-    }
-    
-    public LocalVariable ResolveLocalVariable(string name)
-    {
-        var variable = Variables.FirstOrDefault(v => v.Name == name);
-        if (variable == null)
-        {
-            throw new Exception($"Variable {name} is not defined");
-        }
-
-        if (variable is not LocalVariable localVariable)
-        {
-            throw new Exception($"Variable {name} is not a local variable");
-        }
-
-        return localVariable;
-    }
+    public override string ToString() => $"{Name}: {Type}";
 }
