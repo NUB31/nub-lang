@@ -107,7 +107,7 @@ public class Parser
 
         ExpectSymbol(Symbol.OpenBrace);
 
-        List<StructMember> variables = [];
+        List<StructField> variables = [];
 
         while (!TryExpectSymbol(Symbol.CloseBrace))
         {
@@ -124,7 +124,7 @@ public class Parser
 
             ExpectSymbol(Symbol.Semicolon);
 
-            variables.Add(new StructMember(variableName, variableType, variableValue));
+            variables.Add(new StructField(variableName, variableType, variableValue));
         }
 
         return new StructDefinitionNode(name, variables);
