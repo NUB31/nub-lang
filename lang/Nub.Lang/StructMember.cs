@@ -2,9 +2,9 @@
 
 namespace Nub.Lang;
 
-public class StructMember(string name, Type type, Optional<ExpressionNode> value)
+public class StructMember(string name, NubType type, Optional<ExpressionNode> value)
 {
     public string Name { get; } = name;
-    public Type Type { get; } = type;
+    public NubType Type { get; } = type;
     public Optional<ExpressionNode> Value { get; } = value;
 }

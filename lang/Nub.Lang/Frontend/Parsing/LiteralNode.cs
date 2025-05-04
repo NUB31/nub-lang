@@ -1,7 +1,7 @@
 ﻿namespace Nub.Lang.Frontend.Parsing;
 
-public class LiteralNode(string literal, Type type) : ExpressionNode
+public class LiteralNode(string literal, NubType type) : ExpressionNode
 {
     public string Literal { get; } = literal;
-    public Type LiteralType { get; } = type;
+    public NubType LiteralType { get; } = type;
 }

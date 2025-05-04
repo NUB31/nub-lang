@@ -118,7 +118,7 @@ public class SymbolTable
         return offset;
     }    
     
-    public Func ResolveFunc(string name, List<Type> parameterTypes)
+    public Func ResolveFunc(string name, List<NubType> parameterTypes)
     {
         var func = _funcDefinitions.FirstOrDefault(f => f.SignatureMatches(name, parameterTypes));
         if (func == null)
@@ -129,7 +129,7 @@ public class SymbolTable
         return func;
     }
     
-    public LocalFunc ResolveLocalFunc(string name, List<Type> parameterTypes)
+    public LocalFunc ResolveLocalFunc(string name, List<NubType> parameterTypes)
     {
         var func = ResolveFunc(name, parameterTypes);
         if (func is not LocalFunc localFunc)
@@ -139,7 +139,7 @@ public class SymbolTable
         return localFunc;
     }
     
-    public ExternFunc ResolveExternFunc(string name, List<Type> parameterTypes)
+    public ExternFunc ResolveExternFunc(string name, List<NubType> parameterTypes)
     {
         var func = ResolveFunc(name, parameterTypes);
         if (func is not ExternFunc externFunc)
@@ -161,27 +161,27 @@ public class SymbolTable
     }
 }
 
-public abstract class Variable(string name, Type type)
+public abstract class Variable(string name, NubType type)
 {
     public string Name { get; } = name;
-    public Type Type { get; } = type;
+    public NubType Type { get; } = type;
 
     public override string ToString() => $"{Name}: {Type}";
 }
 
-public class LocalVariable(string name, Type type, int offset) : Variable(name, type)
+public class LocalVariable(string name, NubType type, int offset) : Variable(name, type)
 {
     public int Offset { get; } = offset;
 }
 
-public class GlobalVariable(string name, Type type, string identifier) : Variable(name, type)
+public class GlobalVariable(string name, NubType type, string identifier) : Variable(name, type)
 {
     public string Identifier { get; } = identifier;
 }
 
 public abstract class Func
 {
-    protected Func(string name, string startLabel, List<FuncParameter> parameters, Optional<Type> returnType)
+    protected Func(string name, string startLabel, List<FuncParameter> parameters, Optional<NubType> returnType)
     {
         Name = name;
         Parameters = parameters;
@@ -192,16 +192,16 @@ public abstract class Func
     public string Name { get; }
     public string StartLabel { get; }
     public List<FuncParameter> Parameters { get; }
-    public Optional<Type> ReturnType { get; }
+    public Optional<NubType> ReturnType { get; }
 
-    public bool SignatureMatches(string name, List<Type> parameterTypes)
+    public bool SignatureMatches(string name, List<NubType> parameterTypes)
     {
         if (Name != name) return false;
         if (Parameters.Count != parameterTypes.Count) return false;
 
         for (var i = 0; i < parameterTypes.Count; i++)
         {
-            if (!Parameters[i].Type.IsAssignableTo(parameterTypes[i])) return false;
+            if (!Parameters[i].Type.Equals(parameterTypes[i])) return false;
         }
 
         return true;
@@ -212,14 +212,14 @@ public abstract class Func
 
 public class ExternFunc : Func
 {
-    public ExternFunc(string name, string startLabel, List<FuncParameter> parameters, Optional<Type> returnType) : base(name, startLabel, parameters, returnType)
+    public ExternFunc(string name, string startLabel, List<FuncParameter> parameters, Optional<NubType> returnType) : base(name, startLabel, parameters, returnType)
     {
     }
 }
 
 public class LocalFunc : Func
 {
-    public LocalFunc(string name, string startLabel, string endLabel, List<FuncParameter> parameters, Optional<Type> returnType, List<Variable> variables) : base(name, startLabel, parameters, returnType)
+    public LocalFunc(string name, string startLabel, string endLabel, List<FuncParameter> parameters, Optional<NubType> returnType, List<Variable> variables) : base(name, startLabel, parameters, returnType)
     {
         EndLabel = endLabel;
         Variables = variables;

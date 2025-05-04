@@ -86,7 +86,7 @@ public class Lexer
             
             if (buffer is "true" or "false")
             {
-                return new LiteralToken(new PrimitiveType(PrimitiveTypeKind.Bool), buffer);
+                return new LiteralToken(NubType.Bool, buffer);
             }
 
             return new IdentifierToken(buffer);
@@ -103,7 +103,7 @@ public class Lexer
                 current = Peek();
             }
 
-            return new LiteralToken(new PrimitiveType(PrimitiveTypeKind.Int64), buffer);
+            return new LiteralToken(NubType.Int64, buffer);
         }
 
         // TODO: Revisit this
@@ -148,7 +148,7 @@ public class Lexer
                 buffer += current.Value;
             }
             
-            return new LiteralToken(new StringType(), buffer);
+            return new LiteralToken(NubType.String, buffer);
         }
 
         if (char.IsWhiteSpace(current.Value))

@@ -7,21 +7,21 @@ public class Parser
 {
     private List<Token> _tokens = [];
     private int _index;
-    
+
     public ModuleNode ParseModule(List<Token> tokens, string path)
     {
         _index = 0;
         _tokens = tokens;
-        
+
         List<DefinitionNode> definitions = [];
         List<string> imports = [];
-        
+
         while (Peek().HasValue)
         {
             if (TryExpectSymbol(Symbol.Import))
             {
                 var name = ExpectLiteral();
-                if (name.Type is not StringType)
+                if (!name.Type.Equals(NubType.String))
                 {
                     throw new Exception("Import statements must have a string literal value");
                 }
@@ -75,10 +75,10 @@ public class Parser
             }
         }
 
-        var returnType = Optional<Type>.Empty();
+        var returnType = Optional<NubType>.Empty();
         if (TryExpectSymbol(Symbol.Colon))
         {
-            returnType = ParseType();
+            returnType = ParseTypeInstance();
         }
 
         var body = ParseBlock();
@@ -101,14 +101,14 @@ public class Parser
             }
         }
 
-        var returnType = Optional<Type>.Empty();
+        var returnType = Optional<NubType>.Empty();
         if (TryExpectSymbol(Symbol.Colon))
         {
-            returnType = ParseType();
+            returnType = ParseTypeInstance();
         }
 
         ExpectSymbol(Symbol.Semicolon);
-        
+
         return new ExternFuncDefinitionNode(name.Value, parameters, returnType);
     }
 
@@ -117,28 +117,27 @@ public class Parser
         var name = ExpectIdentifier().Value;
 
         ExpectSymbol(Symbol.OpenBrace);
-        
+
         List<StructMember> variables = [];
-        
+
         while (!TryExpectSymbol(Symbol.CloseBrace))
         {
-            ExpectSymbol(Symbol.Let);
             var variableName = ExpectIdentifier().Value;
             ExpectSymbol(Symbol.Colon);
-            var variableType = ParseType();
+            var variableType = ParseTypeInstance();
 
             var variableValue = Optional<ExpressionNode>.Empty();
-            
+
             if (TryExpectSymbol(Symbol.Assign))
             {
                 variableValue = ParseExpression();
             }
-            
+
             ExpectSymbol(Symbol.Semicolon);
-            
+
             variables.Add(new StructMember(variableName, variableType, variableValue));
         }
-        
+
         return new StructDefinitionNode(name, variables);
     }
 
@@ -146,7 +145,7 @@ public class Parser
     {
         var name = ExpectIdentifier();
         ExpectSymbol(Symbol.Colon);
-        var type = ParseType();
+        var type = ParseTypeInstance();
 
         return new FuncParameter(name.Value, type);
     }
@@ -178,15 +177,6 @@ public class Parser
                         }
 
                         return new FuncCallStatementNode(new FuncCall(identifier.Value, parameters));
-                    }
-                    case Symbol.OpenBracket:
-                    {
-                        var index = ParseExpression();
-                        ExpectSymbol(Symbol.CloseBracket);
-                        ExpectSymbol(Symbol.Assign);
-                        var value = ParseExpression();
-                        ExpectSymbol(Symbol.Semicolon);
-                        return new ArrayIndexAssignmentNode(new IdentifierNode(identifier.Value), index, value);
                     }
                     case Symbol.Assign:
                     {
@@ -238,7 +228,7 @@ public class Parser
         ExpectSymbol(Symbol.Assign);
         var value = ParseExpression();
         ExpectSymbol(Symbol.Semicolon);
-        
+
         return new VariableAssignmentNode(name, value);
     }
 
@@ -254,7 +244,7 @@ public class Parser
                 ? (Variant<IfNode, BlockNode>)ParseIf()
                 : (Variant<IfNode, BlockNode>)ParseBlock();
         }
-                        
+
         return new IfNode(condition, body, elseStatement);
     }
 
@@ -276,7 +266,7 @@ public class Parser
         ExpectSymbol(Symbol.Semicolon);
         return new ContinueNode();
     }
-    
+
     private ExpressionNode ParseExpression(int precedence = 0)
     {
         var left = ParsePrimaryExpression();
@@ -284,15 +274,16 @@ public class Parser
         while (true)
         {
             var token = Peek();
-            if (!token.HasValue || token.Value is not SymbolToken symbolToken || !TryGetBinaryOperator(symbolToken.Symbol, out var op) || GetBinaryOperatorPrecedence(op.Value) < precedence)
+            if (!token.HasValue || token.Value is not SymbolToken symbolToken || !TryGetBinaryOperator(symbolToken.Symbol, out var op) ||
+                GetBinaryOperatorPrecedence(op.Value) < precedence)
                 break;
-            
+
             Next();
             var right = ParseExpression(GetBinaryOperatorPrecedence(op.Value) + 1);
 
             left = new BinaryExpressionNode(left, op.Value, right);
         }
-        
+
         return left;
     }
 
@@ -360,9 +351,13 @@ public class Parser
         switch (token)
         {
             case LiteralToken literal:
+            {
                 return new LiteralNode(literal.Value, literal.Type);
+            }
             case IdentifierToken identifier:
+            {
                 return ParseExpressionIdentifier(identifier);
+            }
             case SymbolToken symbolToken:
             {
                 switch (symbolToken.Symbol)
@@ -375,45 +370,25 @@ public class Parser
                     }
                     case Symbol.New:
                     {
-                        var type = ParseType();
-                        switch (type)
+                        var type = ParseTypeInstance();
+                        Dictionary<string, ExpressionNode> initializers = [];
+                        ExpectSymbol(Symbol.OpenBrace);
+                        while (!TryExpectSymbol(Symbol.CloseBrace))
                         {
-                            case ArrayType:
-                            {
-                                ExpectSymbol(Symbol.OpenParen);
-                                var size = ExpectLiteral();
-                                if (size.Type is not PrimitiveType { Kind: PrimitiveTypeKind.Int64 })
-                                {
-                                    throw new Exception($"Array initializer size must be an {PrimitiveTypeKind.Int64}");
-                                }
-                                ExpectSymbol(Symbol.CloseParen);
-                            
-                                return new ArrayInitializerNode(long.Parse(size.Value), type);
-                            }
-                            case StructType structType:
-                            {
-                                Dictionary<string, ExpressionNode> initializers = [];
-                                ExpectSymbol(Symbol.OpenBrace);
-                                while (!TryExpectSymbol(Symbol.CloseBrace))
-                                {
-                                    var name = ExpectIdentifier().Value;
-                                    ExpectSymbol(Symbol.Assign);
-                                    var value = ParseExpression();
-                                    TryExpectSymbol(Symbol.Comma);
-                                    initializers.Add(name, value);
-                                }
-                            
-                                return new StructInitializerNode(structType, initializers);
-                            }
-                            default:
-                                throw new Exception($"Type {type} cannot be initialized with the new keyword");
+                            var name = ExpectIdentifier().Value;
+                            ExpectSymbol(Symbol.Assign);
+                            var value = ParseExpression();
+                            TryExpectSymbol(Symbol.Semicolon);
+                            initializers.Add(name, value);
                         }
+
+                        return new StructInitializerNode(type, initializers);
                     }
                     default:
                         throw new Exception($"Unknown symbol: {symbolToken.Symbol}");
                 }
             }
-            default: 
+            default:
                 throw new Exception($"Unexpected token type {token.GetType().Name}");
         }
     }
@@ -448,13 +423,6 @@ public class Parser
 
                         return new StructMemberAccessorNode(members);
                     }
-                    case Symbol.OpenBracket:
-                    {
-                        Next();
-                        var index = ParseExpression();
-                        ExpectSymbol(Symbol.CloseBracket);
-                        return new ArrayIndexAccessNode(new IdentifierNode(identifier.Value), index);
-                    }
                     case Symbol.OpenParen:
                     {
                         Next();
@@ -473,10 +441,11 @@ public class Parser
                         return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
                     }
                 }
+
                 break;
             }
         }
-        
+
         return new IdentifierNode(identifier.Value);
     }
 
@@ -492,36 +461,22 @@ public class Parser
         return new BlockNode(statements);
     }
 
-    private Type ParseType()
+    private NubType ParseTypeInstance()
     {
+        var parameters = new List<NubType>();
         var name = ExpectIdentifier().Value;
-        switch (name)
+
+        if (TryExpectSymbol(Symbol.LessThan))
         {
-            case "String":
+            do
             {
-                return new StringType();
-            }
-            case "Array":
-            {
-                ExpectSymbol(Symbol.LessThan);
-                var innerType = ParseType();
-                ExpectSymbol(Symbol.GreaterThan);
-                return new ArrayType(innerType);
-            }
-            case "Any":
-            {
-                return new AnyType();
-            }
-            default:
-            {
-                if (PrimitiveType.TryParse(name, out var primitiveType))
-                {
-                    return primitiveType;
-                }
-                
-                return new StructType(name);
-            }
+                parameters.Add(ParseTypeInstance());
+            } while (TryExpectSymbol(Symbol.Comma));
+
+            ExpectSymbol(Symbol.GreaterThan);
         }
+
+        return new NubType(name, parameters.ToArray());
     }
 
     private Token ExpectToken()

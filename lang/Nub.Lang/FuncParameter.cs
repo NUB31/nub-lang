@@ -1,9 +1,9 @@
 ﻿namespace Nub.Lang;
 
-public class FuncParameter(string name, Type type)
+public class FuncParameter(string name, NubType type)
 {
     public string Name { get; } = name;
-    public Type Type { get; } = type;
+    public NubType Type { get; } = type;
 
     public override string ToString() => $"{Name}: {Type}";
 }

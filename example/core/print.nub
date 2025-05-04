@@ -2,16 +2,16 @@ let SYS_WRITE = 1;
 let STD_OUT = 1;
 let STD_ERR = 2;
 
-func print(msg: String) {
+func print(msg: string) {
     syscall(SYS_WRITE, STD_OUT, msg, str_len(msg));
 }
 
-func print(value1: int64) {
-    print(itoa(value1));
+func print(value: int64) {
+    print(itoa(value));
 }
 
-func print(value2: bool) {
-    if value2 {
+func print(value: bool) {
+    if value {
         print("true");
     } else {
         print("false");
@@ -22,17 +22,17 @@ func println() {
     print("\n");
 }
 
-func println(msg: String) {
+func println(msg: string) {
     print(msg);
     println();
 }
 
-func println(value3: bool) {
-    print(value3);
+func println(value: bool) {
+    print(value);
     println();
 }
 
-func println(value4: int64) {
-    print(value4);
+func println(value: int64) {
+    print(value);
     println();
 }

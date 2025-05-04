@@ -2,12 +2,12 @@
 
 namespace Nub.Lang.Frontend.Typing;
 
-public class Func(string name, List<FuncParameter> parameters, Optional<BlockNode> body, Optional<Type> returnType)
+public class Func(string name, List<FuncParameter> parameters, Optional<BlockNode> body, Optional<NubType> returnType)
 {
     public string Name { get; } = name;
     public List<FuncParameter> Parameters { get; } = parameters;
     public Optional<BlockNode> Body { get; } = body;
-    public Optional<Type> ReturnType { get; } = returnType;
+    public Optional<NubType> ReturnType { get; } = returnType;
 }
 
 public class ExpressionTyper
@@ -96,9 +96,6 @@ public class ExpressionTyper
     {
         switch (statement)
         {
-            case ArrayIndexAssignmentNode arrayIndexAssignment:
-                PopulateArrayIndexAssignment(arrayIndexAssignment);
-                break;
             case BreakNode:
             case ContinueNode:
                 break;
@@ -126,13 +123,6 @@ public class ExpressionTyper
             default:
                 throw new ArgumentOutOfRangeException(nameof(statement));
         }
-    }
-
-    private void PopulateArrayIndexAssignment(ArrayIndexAssignmentNode arrayIndexAssignment)
-    {
-        PopulateIdentifier(arrayIndexAssignment.Identifier);
-        PopulateExpression(arrayIndexAssignment.Index);
-        PopulateExpression(arrayIndexAssignment.Value);
     }
 
     private void PopulateFuncCallStatement(FuncCallStatementNode funcCall)
@@ -194,12 +184,6 @@ public class ExpressionTyper
     {
         switch (expression)
         {
-            case ArrayIndexAccessNode arrayIndexAccess:
-                PopulateArrayIndexAccess(arrayIndexAccess);
-                break;
-            case ArrayInitializerNode arrayInitializer:
-                PopulateArrayInitializer(arrayInitializer);
-                break;
             case BinaryExpressionNode binaryExpression:
                 PopulateBinaryExpression(binaryExpression);
                 break;
@@ -226,30 +210,6 @@ public class ExpressionTyper
         }
     }
 
-    private void PopulateArrayIndexAccess(ArrayIndexAccessNode arrayIndexAccess)
-    {
-        PopulateExpression(arrayIndexAccess.Index);
-        PopulateIdentifier(arrayIndexAccess.Identifier);
-        
-        var variable = _variables.FirstOrDefault(v => v.Name == arrayIndexAccess.Identifier.Identifier);
-        if (variable == null)
-        {
-            throw new Exception($"Variable {arrayIndexAccess.Identifier} is not defined");
-        }
-
-        if (variable.Type is not ArrayType arrayType)
-        {
-            throw new Exception($"Variable {arrayIndexAccess.Identifier} is not an array type");
-        }
-
-        arrayIndexAccess.Type = arrayType.InnerType;
-    }
-
-    private void PopulateArrayInitializer(ArrayInitializerNode arrayInitializer)
-    {
-        arrayInitializer.Type = arrayInitializer.InnerType;
-    }
-
     private void PopulateBinaryExpression(BinaryExpressionNode binaryExpression)
     {
         PopulateExpression(binaryExpression.Left);
@@ -263,7 +223,7 @@ public class ExpressionTyper
             case BinaryExpressionOperator.LessThan:
             case BinaryExpressionOperator.LessThanOrEqual:
             {
-                binaryExpression.Type = new PrimitiveType(PrimitiveTypeKind.Bool);
+                binaryExpression.Type = new NubType("bool", []);
                 break;
             }
             case BinaryExpressionOperator.Plus:
@@ -333,13 +293,8 @@ public class ExpressionTyper
         {
             throw new Exception($"Variable {structMemberAccessor.Members[0]} is not defined");
         }
-
-        if (variable.Type is not StructType variableType)
-        {
-            throw new Exception("Variable " + structMemberAccessor.Members[0] + " is not a struct");
-        }
         
-        var definition = _structDefinitions.FirstOrDefault(sd => sd.Name == variableType.Name);
+        var definition = _structDefinitions.FirstOrDefault(sd => sd.Name == variable.Type.Name);
         if (definition == null)
         {
             throw new Exception($"Struct {structMemberAccessor.Members[0]} is not defined");
@@ -352,13 +307,8 @@ public class ExpressionTyper
             {
                 throw new Exception($"Member {structMemberAccessor.Members[i]} does not exist on struct {definition.Name}");
             }
-
-            if (member.Type is not StructType memberType)
-            {
-                throw new Exception($"Member {structMemberAccessor.Members[i]} on struct {definition.Name} is not a struct");
-            }
             
-            definition = _structDefinitions.FirstOrDefault(sd => sd.Name == memberType.Name);
+            definition = _structDefinitions.FirstOrDefault(sd => sd.Name == member.Type.Name);
             if (definition == null)
             {
                 throw new Exception($"Struct {structMemberAccessor.Members[i]} is not defined");
@@ -381,12 +331,12 @@ public class ExpressionTyper
             PopulateExpression(parameter);
         }
 
-        syscall.Type = new PrimitiveType(PrimitiveTypeKind.Int64);
+        syscall.Type = new NubType("int64", []);
     }
 
-    private class Variable(string name, Type type)
+    private class Variable(string name, NubType type)
     {
         public string Name { get; } = name;
-        public Type Type { get; } = type;
+        public NubType Type { get; } = type;
     }
 }
