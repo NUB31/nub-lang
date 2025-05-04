@@ -99,9 +99,6 @@ public class ExpressionTyper
             case ReturnNode returnNode:
                 PopulateReturn(returnNode);
                 break;
-            case SyscallStatementNode syscall:
-                PopulateSyscallStatement(syscall);
-                break;
             case VariableAssignmentNode variableAssignment:
                 PopulateVariableAssignment(variableAssignment);
                 break;
@@ -135,14 +132,6 @@ public class ExpressionTyper
                 PopulateIf,
                 PopulateBlock
             );
-        }
-    }
-
-    private void PopulateSyscallStatement(SyscallStatementNode syscall)
-    {
-        foreach (var parameter in syscall.Syscall.Parameters)
-        {
-            PopulateExpression(parameter);
         }
     }
 
@@ -192,9 +181,6 @@ public class ExpressionTyper
                 break;
             case StructMemberAccessorNode structMemberAccessor:
                 GenerateStructMemberAccessorNode(structMemberAccessor);
-                break;
-            case SyscallExpressionNode syscall:
-                PopulateSyscallExpression(syscall);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
@@ -313,16 +299,6 @@ public class ExpressionTyper
         }
         
         structMemberAccessor.Type = tmp.Type;
-    }
-
-    private void PopulateSyscallExpression(SyscallExpressionNode syscall)
-    {
-        foreach (var parameter in syscall.Syscall.Parameters)
-        {
-            PopulateExpression(parameter);
-        }
-
-        syscall.Type = new NubType("int64", []);
     }
 
     private class Variable(string name, NubType type)

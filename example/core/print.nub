@@ -1,9 +1,5 @@
-let SYS_WRITE = 1;
-let STD_OUT = 1;
-let STD_ERR = 2;
-
 func print(msg: string) {
-    syscall(SYS_WRITE, STD_OUT, msg, str_len(msg));
+    syscall(1, 1, msg, str_len(msg));
 }
 
 func print(value: int64) {

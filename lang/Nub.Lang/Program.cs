@@ -50,7 +50,8 @@ internal static class Program
         var generator = new Generator(definitions);
         var asm = generator.Generate();
 
-        File.WriteAllText(output, asm);
+        // File.WriteAllText(output, asm);
+        Console.WriteLine(asm);
         return 0;
     }
 

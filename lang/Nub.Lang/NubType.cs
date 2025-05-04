@@ -13,11 +13,8 @@ public sealed class NubType
 
     public static NubType Int64 => new("int64", []);
     public static NubType Int32 => new("int32", []);
-    public static NubType Int16 => new("int16", []);
-    public static NubType Int8 => new("int8", []);
     public static NubType Bool => new("bool", []);
     public static NubType String => new("string", []);
-    public static NubType Array(NubType innerType) => new("array", [innerType]);
 
     public override bool Equals(object? obj)
     {

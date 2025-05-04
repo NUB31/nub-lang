@@ -160,11 +160,6 @@ public class Parser
 
                         ExpectSymbol(Symbol.Semicolon);
 
-                        if (identifier.Value == "syscall")
-                        {
-                            return new SyscallStatementNode(new Syscall(parameters));
-                        }
-
                         return new FuncCallStatementNode(new FuncCall(identifier.Value, parameters));
                     }
                     case Symbol.Assign:
@@ -420,11 +415,6 @@ public class Parser
                         {
                             parameters.Add(ParseExpression());
                             TryExpectSymbol(Symbol.Comma);
-                        }
-
-                        if (identifier.Value == "syscall")
-                        {
-                            return new SyscallExpressionNode(new Syscall(parameters));
                         }
 
                         return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));

@@ -9,6 +9,8 @@ public class SymbolTable
         var externFuncDefs = new List<ExternFuncDef>();
         var localFuncDefs = new List<LocalFuncDef>();
 
+        var strings = new List<string>();
+
         foreach (var node in program)
         {
             switch (node)
@@ -29,7 +31,7 @@ public class SymbolTable
                     var parameters = localFuncDefinitionNode.Parameters.Select(parameter => new Variable(parameter.Name, parameter.Type)).ToList();
                     var localVariables = new List<Variable>();
 
-                    FindVariables(localFuncDefinitionNode.Body);
+                    Search(localFuncDefinitionNode.Body);
 
                     localFuncDefs.Add(new LocalFuncDef
                     {
@@ -40,27 +42,97 @@ public class SymbolTable
                     });
                     break;
 
-                    void FindVariables(BlockNode blockNode)
+                    void Search(BlockNode blockNode)
                     {
                         foreach (var statement in blockNode.Statements)
                         {
                             switch (statement)
                             {
+                                case FuncCallStatementNode funcCallStatementNode:
+                                {
+                                    foreach (var parameter in funcCallStatementNode.FuncCall.Parameters)
+                                    {
+                                        FindStrings(parameter);
+                                    }
+                                    break;
+                                }
                                 case IfNode ifNode:
                                 {
-                                    FindVariables(ifNode.Body);
+                                    SearchIf(ifNode);
+                                    break;
+                                }
+                                case ReturnNode returnNode:
+                                {
+                                    if (returnNode.Value.HasValue)
+                                    {
+                                        FindStrings(returnNode.Value.Value);
+                                    }
                                     break;
                                 }
                                 case WhileNode whileNode:
                                 {
-                                    FindVariables(whileNode.Body);
+                                    FindStrings(whileNode.Condition);
+                                    Search(whileNode.Body);
                                     break;
                                 }
                                 case VariableAssignmentNode variableAssignmentNode:
                                 {
+                                    FindStrings(variableAssignmentNode.Value);
                                     localVariables.Add(new Variable(variableAssignmentNode.Name, variableAssignmentNode.Value.Type));
                                     break;
                                 }
+                                case VariableReassignmentNode variableReassignmentNode:
+                                {
+                                    FindStrings(variableReassignmentNode.Value);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    void SearchIf(IfNode ifNode)
+                    {
+                        FindStrings(ifNode.Condition);
+                        Search(ifNode.Body);
+                        if (ifNode.Else.HasValue)
+                        {
+                            ifNode.Else.Value.Match(SearchIf, Search);
+                        }
+                    }
+
+                    void FindStrings(ExpressionNode expressionNode)
+                    {
+                        switch (expressionNode)
+                        {
+                            case BinaryExpressionNode binaryExpressionNode:
+                            {
+                                FindStrings(binaryExpressionNode.Left);
+                                FindStrings(binaryExpressionNode.Right);
+                                break;
+                            }
+                            case FuncCallExpressionNode funcCallExpressionNode:
+                            {
+                                foreach (var parameter in funcCallExpressionNode.FuncCall.Parameters)
+                                {
+                                    FindStrings(parameter);
+                                }
+                                break;
+                            }
+                            case LiteralNode literalNode:
+                            {
+                                if (literalNode.LiteralType.Equals(NubType.String))
+                                {
+                                    strings.Add(literalNode.Literal);
+                                }
+                                break;
+                            }
+                            case StructInitializerNode structInitializerNode:
+                            {
+                                foreach (var initializer in structInitializerNode.Initializers)
+                                {
+                                    FindStrings(initializer.Value);
+                                }
+                                break;
                             }
                         }
                     }
@@ -76,18 +148,31 @@ public class SymbolTable
             }
         }
 
-        return new SymbolTable(externFuncDefs, localFuncDefs);
+        return new SymbolTable(strings, externFuncDefs, localFuncDefs);
     }
 
+    private readonly List<string> _strings;
     private readonly List<ExternFuncDef> _externFuncDefs;
     private readonly List<LocalFuncDef> _localFuncDefs;
 
-    private SymbolTable(List<ExternFuncDef> externFuncDefs, List<LocalFuncDef> localFuncDefs)
+    private SymbolTable(List<string> strings, List<ExternFuncDef> externFuncDefs, List<LocalFuncDef> localFuncDefs)
     {
+        _strings = strings;
         _externFuncDefs = externFuncDefs;
         _localFuncDefs = localFuncDefs;
     }
 
+    public int ResolveString(string value)
+    {
+        var index = _strings.IndexOf(value);
+        if (index == -1)
+        {
+            throw new Exception("String not found: " + value);
+        }
+
+        return index;
+    }
+    
     public FuncDef ResolveFunc(string name, List<NubType> parameters)
     {
         var matching = _externFuncDefs.Concat<FuncDef>(_localFuncDefs).Where(funcDef => funcDef.SignatureMatches(name, parameters)).ToArray();

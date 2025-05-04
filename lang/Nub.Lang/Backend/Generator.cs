@@ -17,11 +17,6 @@ public class Generator
 
     public string Generate()
     {
-        foreach (var externFuncDefinition in _definitions.OfType<ExternFuncDefinitionNode>())
-        {
-            GenerateExternFuncDefinition(externFuncDefinition);
-        }
-
         foreach (var funcDefinition in _definitions.OfType<LocalFuncDefinitionNode>())
         {
             GenerateFuncDefinition(funcDefinition);
@@ -30,12 +25,40 @@ public class Generator
         return _builder.ToString();
     }
 
-    private void GenerateExternFuncDefinition(ExternFuncDefinitionNode externFuncDefinition)
+    private string QbeTypeName(NubType type)
     {
+        if (type.Equals(NubType.Int64))
+        {
+            return "l";
+        }
+        
+        if (type.Equals(NubType.Int32))
+        {
+            return "w";
+        }
+        
+        if (type.Equals(NubType.String))
+        {
+            return "l";
+        }
+
+        throw new Exception($"Invalid qbe type {type}");
     }
 
     private void GenerateFuncDefinition(LocalFuncDefinitionNode node)
     {
+        var parameters = node.Parameters.Select(p => $"{QbeTypeName(p.Type)} %{p.Name}");
+        _builder.Append("function ");
+        if (node.ReturnType.HasValue)
+        {
+            _builder.Append($"{QbeTypeName(node.ReturnType.Value)} ");
+        }
+
+        _builder.Append(node.Name);
+        _builder.AppendLine($"({string.Join(", ", parameters)}) {{");
+        _builder.AppendLine("@start");
+        GenerateBlock(node.Body, _symbolTable.ResolveLocalFunc(node.Name, node.Parameters.Select(x => x.Type).ToList()));
+        _builder.AppendLine("}");
     }
     
     private void GenerateBlock(BlockNode block, LocalFuncDef func)
@@ -64,9 +87,6 @@ public class Generator
                 break;
             case ReturnNode @return:
                 GenerateReturn(@return, func);
-                break;
-            case SyscallStatementNode syscallStatement:
-                GenerateSyscall(syscallStatement.Syscall, func);
                 break;
             case VariableAssignmentNode variableAssignment:
                 GenerateVariableAssignment(variableAssignment, func);
@@ -132,9 +152,6 @@ public class Generator
             case StructMemberAccessorNode structMemberAccessor:
                 GenerateStructMemberAccessor(structMemberAccessor, func);
                 break;
-            case SyscallExpressionNode syscallExpression:
-                GenerateSyscall(syscallExpression.Syscall, func);
-                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
         }
@@ -161,10 +178,6 @@ public class Generator
     }
 
     private void GenerateFuncCall(FuncCall funcCall, LocalFuncDef func)
-    {
-    }
-
-    private void GenerateSyscall(Syscall syscall, LocalFuncDef func)
     {
     }
 }
