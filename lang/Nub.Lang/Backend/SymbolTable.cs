@@ -1,6 +1,6 @@
 ﻿using Nub.Lang.Frontend.Parsing;
 
-namespace Nub.Lang.Backend.Custom;
+namespace Nub.Lang.Backend;
 
 public class SymbolTable
 {

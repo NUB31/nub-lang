@@ -1,4 +1,4 @@
-﻿namespace Nub.Lang.Backend.Custom;
+﻿namespace Nub.Lang.Backend;
 
 public class LabelFactory
 {
