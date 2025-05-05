@@ -8,6 +8,7 @@ public class Generator
     private readonly List<DefinitionNode> _definitions;
     private readonly StringBuilder _builder = new();
     private readonly SymbolTable _symbolTable;
+    private readonly Dictionary<string, string> _variables = new();
     
     public Generator(List<DefinitionNode> definitions)
     {
@@ -17,6 +18,12 @@ public class Generator
 
     public string Generate()
     {
+        for (var i = 0; i < _symbolTable.Strings.Count; i++)
+        {
+            var str = _symbolTable.Strings[i];
+            _builder.AppendLine($"data $str{i} = {{ b \"{str}\", b 0 }}");
+        }
+
         foreach (var funcDefinition in _definitions.OfType<LocalFuncDefinitionNode>())
         {
             GenerateFuncDefinition(funcDefinition);
@@ -27,19 +34,14 @@ public class Generator
 
     private string QbeTypeName(NubType type)
     {
-        if (type.Equals(NubType.Int64))
+        if (type.Equals(NubType.Int64) || type.Equals(NubType.String))
         {
             return "l";
         }
         
-        if (type.Equals(NubType.Int32))
+        if (type.Equals(NubType.Int32) || type.Equals(NubType.Bool))
         {
             return "w";
-        }
-        
-        if (type.Equals(NubType.String))
-        {
-            return "l";
         }
 
         throw new Exception($"Invalid qbe type {type}");
@@ -47,17 +49,24 @@ public class Generator
 
     private void GenerateFuncDefinition(LocalFuncDefinitionNode node)
     {
+        _variables.Clear();
         var parameters = node.Parameters.Select(p => $"{QbeTypeName(p.Type)} %{p.Name}");
-        _builder.Append("function ");
+        _builder.Append("export function ");
         if (node.ReturnType.HasValue)
         {
             _builder.Append($"{QbeTypeName(node.ReturnType.Value)} ");
         }
 
+        _builder.Append('$');
         _builder.Append(node.Name);
+        
         _builder.AppendLine($"({string.Join(", ", parameters)}) {{");
         _builder.AppendLine("@start");
         GenerateBlock(node.Body, _symbolTable.ResolveLocalFunc(node.Name, node.Parameters.Select(x => x.Type).ToList()));
+        if (!node.ReturnType.HasValue)
+        {
+            _builder.AppendLine("    ret");
+        }
         _builder.AppendLine("}");
     }
     
@@ -80,7 +89,7 @@ public class Generator
                 GenerateContinue();
                 break;
             case FuncCallStatementNode funcCallStatement:
-                GenerateFuncCall(funcCallStatement.FuncCall, func);
+                GenerateStatementFuncCall(funcCallStatement, func);
                 break;
             case IfNode ifStatement:
                 GenerateIf(ifStatement, func);
@@ -109,6 +118,19 @@ public class Generator
     private void GenerateContinue()
     {
     }
+    
+    private void GenerateStatementFuncCall(FuncCallStatementNode funcCall, LocalFuncDef func)
+    {
+        var results = new List<(string, NubType)>();
+        foreach (var parameter in funcCall.FuncCall.Parameters)
+        {
+            results.Add((GenerateExpression(parameter, func), parameter.Type));
+        }
+
+        var parameters = results.Select(p => $"{QbeTypeName(p.Item2)} {p.Item1}");
+        
+        _builder.AppendLine($"    call ${funcCall.FuncCall.Name}({string.Join(", ", parameters)})");
+    }
 
     private void GenerateIf(IfNode ifStatement, LocalFuncDef func)
     {
@@ -116,68 +138,100 @@ public class Generator
 
     private void GenerateReturn(ReturnNode @return, LocalFuncDef func)
     {
+        if (@return.Value.HasValue)
+        {
+            var result = GenerateExpression(@return.Value.Value, func);
+            _builder.AppendLine($"    ret {result}");
+        }
+        else
+        {
+            _builder.AppendLine("    ret");
+        }
     }
 
     private void GenerateVariableAssignment(VariableAssignmentNode variableAssignment, LocalFuncDef func)
     {
+        _variables[variableAssignment.Name] = GenerateExpression(variableAssignment.Value, func);
     }
 
     private void GenerateVariableReassignment(VariableReassignmentNode variableReassignment, LocalFuncDef func)
     {
+        _variables[variableReassignment.Name] = GenerateExpression(variableReassignment.Value, func);
     }
 
     private void GenerateWhile(WhileNode whileStatement, LocalFuncDef func)
     {
     }
 
-    private void GenerateExpression(ExpressionNode expression, LocalFuncDef func)
+    private string GenerateExpression(ExpressionNode expression, LocalFuncDef func)
     {
         switch (expression)
         {
             case BinaryExpressionNode binaryExpression:
-                GenerateBinaryExpression(binaryExpression, func);
-                break;
+                return GenerateBinaryExpression(binaryExpression, func);
             case FuncCallExpressionNode funcCallExpression:
-                GenerateFuncCall(funcCallExpression.FuncCall, func);
-                break;
+                return GenerateExpressionFuncCall(funcCallExpression, func);
             case IdentifierNode identifier:
-                GenerateIdentifier(identifier, func);
-                break;
+                return GenerateIdentifier(identifier, func);
             case LiteralNode literal:
-                GenerateLiteral(literal, func);
-                break;
+                return GenerateLiteral(literal, func);
             case StructInitializerNode structInitializer:
-                GenerateStructInitializer(structInitializer, func);
-                break;
+                return GenerateStructInitializer(structInitializer, func);
             case StructMemberAccessorNode structMemberAccessor:
-                GenerateStructMemberAccessor(structMemberAccessor, func);
-                break;
+                return GenerateStructMemberAccessor(structMemberAccessor, func);
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
         }
     }
 
-    private void GenerateStructMemberAccessor(StructMemberAccessorNode structMemberAccessor, LocalFuncDef func)
+    private string GenerateStructMemberAccessor(StructMemberAccessorNode structMemberAccessor, LocalFuncDef func)
     {
+        throw new NotImplementedException();
     }
 
-    private void GenerateBinaryExpression(BinaryExpressionNode binaryExpression, LocalFuncDef func)
+    private string GenerateBinaryExpression(BinaryExpressionNode binaryExpression, LocalFuncDef func)
     {
+        throw new NotImplementedException();
     }
 
-    private void GenerateIdentifier(IdentifierNode identifier, LocalFuncDef func)
+    private string GenerateIdentifier(IdentifierNode identifier, LocalFuncDef func)
     {
+        return _variables[identifier.Identifier];
     }
 
-    private void GenerateLiteral(LiteralNode literal, LocalFuncDef func)
+    private string GenerateLiteral(LiteralNode literal, LocalFuncDef func)
     {
+        if (literal.LiteralType.Equals(NubType.String))
+        {
+            return $"$str{_symbolTable.ResolveString(literal.Literal)}";
+        }
+        else
+        {
+            throw new NotImplementedException();
+        }
     }
 
-    private void GenerateStructInitializer(StructInitializerNode structInitializer, LocalFuncDef func)
+    private string GenerateStructInitializer(StructInitializerNode structInitializer, LocalFuncDef func)
     {
+        throw new NotImplementedException();
     }
 
-    private void GenerateFuncCall(FuncCall funcCall, LocalFuncDef func)
+    private string GenerateExpressionFuncCall(FuncCallExpressionNode funcCall, LocalFuncDef func)
     {
+        var results = new List<(string, NubType)>();
+        foreach (var parameter in funcCall.FuncCall.Parameters)
+        {
+            results.Add((GenerateExpression(parameter, func), parameter.Type));
+        }
+
+        var parameters = results.Select(p => $"{QbeTypeName(p.Item2)} {p.Item1}");
+        
+        var output = GenName();
+        _builder.AppendLine($"    %{output} ={QbeTypeName(funcCall.Type)} call ${funcCall.FuncCall.Name}({string.Join(", ", parameters)})");
+        
+        return $"%{output}";
     }
+
+    private int _nameIndex;
+    private string GenName() => "v" + ++_nameIndex;
 }

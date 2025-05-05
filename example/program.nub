@@ -1,5 +1,6 @@
 import "core";
 
 func main() {
-    println("test");
+    let x = "test";
+    puts(x);
 }

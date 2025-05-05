@@ -8,6 +8,7 @@ public class SymbolTable
     {
         var externFuncDefs = new List<ExternFuncDef>();
         var localFuncDefs = new List<LocalFuncDef>();
+        var localFuncIndex = 0;
 
         var strings = new List<string>();
 
@@ -54,6 +55,7 @@ public class SymbolTable
                                     {
                                         FindStrings(parameter);
                                     }
+
                                     break;
                                 }
                                 case IfNode ifNode:
@@ -67,6 +69,7 @@ public class SymbolTable
                                     {
                                         FindStrings(returnNode.Value.Value);
                                     }
+
                                     break;
                                 }
                                 case WhileNode whileNode:
@@ -116,6 +119,7 @@ public class SymbolTable
                                 {
                                     FindStrings(parameter);
                                 }
+
                                 break;
                             }
                             case LiteralNode literalNode:
@@ -124,6 +128,7 @@ public class SymbolTable
                                 {
                                     strings.Add(literalNode.Literal);
                                 }
+
                                 break;
                             }
                             case StructInitializerNode structInitializerNode:
@@ -132,6 +137,7 @@ public class SymbolTable
                                 {
                                     FindStrings(initializer.Value);
                                 }
+
                                 break;
                             }
                         }
@@ -162,6 +168,8 @@ public class SymbolTable
         _localFuncDefs = localFuncDefs;
     }
 
+    public IReadOnlyList<string> Strings => _strings;
+
     public int ResolveString(string value)
     {
         var index = _strings.IndexOf(value);
@@ -172,7 +180,7 @@ public class SymbolTable
 
         return index;
     }
-    
+
     public FuncDef ResolveFunc(string name, List<NubType> parameters)
     {
         var matching = _externFuncDefs.Concat<FuncDef>(_localFuncDefs).Where(funcDef => funcDef.SignatureMatches(name, parameters)).ToArray();
@@ -213,6 +221,17 @@ public abstract class FuncDef
     public required List<Variable> Parameters { get; init; }
     public required Optional<NubType> ReturnType { get; init; }
 
+    public virtual Variable ResolveVariable(string name)
+    {
+        var parameter = Parameters.FirstOrDefault(p => p.Name == name);
+        if (parameter == null)
+        {
+            throw new Exception($"Unable to resolve variable {name}");
+        }
+
+        return parameter;
+    }
+
     public bool SignatureMatches(string name, List<NubType> parameterTypes)
     {
         if (Name != name) return false;
@@ -229,7 +248,12 @@ public abstract class FuncDef
 
 public sealed class LocalFuncDef : FuncDef
 {
-    public required List<Variable> LocalVariables { get; set; }
+    public required List<Variable> LocalVariables { get; init; }
+
+    public override Variable ResolveVariable(string name)
+    {
+        return LocalVariables.FirstOrDefault(p => p.Name == name) ?? base.ResolveVariable(name);
+    }
 
     public override string ToString()
     {
