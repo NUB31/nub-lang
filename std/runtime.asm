@@ -1,7 +1,18 @@
-global str_cmp
+global _start
+extern main, gc_init
 
 section .text
-str_cmp:
+_start:
+    call gc_init
+    call main
+    mov rax, 60
+    mov rdi, 0
+    syscall
+
+global base_str_cmp
+
+section .text
+base_str_cmp:
 	xor rdx, rdx
 .loop:
 	mov al, [rsi + rdx]

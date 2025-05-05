@@ -1,4 +1,4 @@
-import "core";
+import "c";
 
 global func main() {
     let x = "test";
