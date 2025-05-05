@@ -1,7 +1,12 @@
 import "c";
 
 global func main() {
-    while true {
-        continue;
+    let x = true;
+    while x {
+        if (true) {
+            puts("level 1");
+        }
+        puts("level 2");
+        break;
     }
 }

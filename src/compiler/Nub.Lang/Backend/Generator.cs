@@ -12,6 +12,7 @@ public class Generator
     private readonly List<string> _strings = [];
     private readonly Stack<string> _breakLabels = new();
     private readonly Stack<string> _continueLabels = new();
+    private bool _codeIsReachable = true;
 
     public Generator(List<DefinitionNode> definitions)
     {
@@ -80,10 +81,12 @@ public class Generator
 
     private void GenerateBlock(BlockNode block)
     {
-        foreach (var statement in block.Statements)
+        foreach (var statement in block.Statements.Where(_ => _codeIsReachable))
         {
             GenerateStatement(statement);
         }
+
+        _codeIsReachable = true;
     }
 
     private void GenerateStatement(StatementNode statement)
@@ -122,11 +125,13 @@ public class Generator
     private void GenerateBreak()
     {
         _builder.AppendLine($"    jmp @{_breakLabels.Peek()}");
+        _codeIsReachable = false;
     }
 
     private void GenerateContinue()
     {
         _builder.AppendLine($"    jmp @{_continueLabels.Peek()}");
+        _codeIsReachable = false;
     }
 
     private void GenerateStatementFuncCall(FuncCallStatementNode funcCall)
