@@ -48,9 +48,9 @@ internal static class Program
         typer.Populate();
 
         var generator = new Generator(definitions);
-        var asm = generator.Generate();
+        var result = generator.Generate();
 
-        File.WriteAllText(output, asm);
+        File.WriteAllText(output, result);
         return 0;
     }
 
