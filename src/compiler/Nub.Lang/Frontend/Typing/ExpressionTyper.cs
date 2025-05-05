@@ -43,7 +43,7 @@ public class ExpressionTyper
         
         foreach (var @class in _structDefinitions)
         {
-            foreach (var variable in @class.Members)
+            foreach (var variable in @class.Fields)
             {
                 if (variable.Value.HasValue)
                 {
@@ -265,37 +265,37 @@ public class ExpressionTyper
     // TODO: Fix this ugly ass code
     private void GenerateStructMemberAccessorNode(StructMemberAccessorNode structMemberAccessor)
     {
-        var variable = _variables.FirstOrDefault(v => v.Name == structMemberAccessor.Members[0]);
+        var variable = _variables.FirstOrDefault(v => v.Name == structMemberAccessor.Fields[0]);
         if (variable == null)
         {
-            throw new Exception($"Variable {structMemberAccessor.Members[0]} is not defined");
+            throw new Exception($"Variable {structMemberAccessor.Fields[0]} is not defined");
         }
         
         var definition = _structDefinitions.FirstOrDefault(sd => sd.Name == variable.Type.Name);
         if (definition == null)
         {
-            throw new Exception($"Struct {structMemberAccessor.Members[0]} is not defined");
+            throw new Exception($"Struct {structMemberAccessor.Fields[0]} is not defined");
         }
 
-        for (var i = 1; i < structMemberAccessor.Members.Count - 1; i++)
+        for (var i = 1; i < structMemberAccessor.Fields.Count - 1; i++)
         {
-            var member = definition.Members.FirstOrDefault(m => m.Name == structMemberAccessor.Members[i]);
+            var member = definition.Fields.FirstOrDefault(m => m.Name == structMemberAccessor.Fields[i]);
             if (member == null)
             {
-                throw new Exception($"Member {structMemberAccessor.Members[i]} does not exist on struct {definition.Name}");
+                throw new Exception($"Member {structMemberAccessor.Fields[i]} does not exist on struct {definition.Name}");
             }
             
             definition = _structDefinitions.FirstOrDefault(sd => sd.Name == member.Type.Name);
             if (definition == null)
             {
-                throw new Exception($"Struct {structMemberAccessor.Members[i]} is not defined");
+                throw new Exception($"Struct {structMemberAccessor.Fields[i]} is not defined");
             }
         }
         
-        var tmp = definition.Members.FirstOrDefault(m => m.Name == structMemberAccessor.Members.Last());
+        var tmp = definition.Fields.FirstOrDefault(m => m.Name == structMemberAccessor.Fields.Last());
         if (tmp == null)
         {
-            throw new Exception($"Member {structMemberAccessor.Members.Last()} does not exist on struct {definition.Name}");
+            throw new Exception($"Member {structMemberAccessor.Fields.Last()} does not exist on struct {definition.Name}");
         }
         
         structMemberAccessor.Type = tmp.Type;

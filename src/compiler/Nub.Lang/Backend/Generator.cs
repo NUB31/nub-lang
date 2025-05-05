@@ -8,7 +8,7 @@ public class Generator
     private readonly List<DefinitionNode> _definitions;
     private readonly StringBuilder _builder = new();
     private readonly Dictionary<string, int> _prefixIndexes = new();
-    private readonly Dictionary<string, string> _variables = new();
+    private readonly Dictionary<string, Variable> _variables = new();
     private readonly List<string> _strings = [];
     private readonly Stack<string> _breakLabels = new();
     private readonly Stack<string> _continueLabels = new();
@@ -21,9 +21,16 @@ public class Generator
 
     public string Generate()
     {
+        foreach (var structDefinition in _definitions.OfType<StructDefinitionNode>())
+        {
+            GenerateStructDefinition(structDefinition);
+            _builder.AppendLine();
+        }
+
         foreach (var funcDefinition in _definitions.OfType<LocalFuncDefinitionNode>())
         {
             GenerateFuncDefinition(funcDefinition);
+            _builder.AppendLine();
         }
 
         for (var i = 0; i < _strings.Count; i++)
@@ -47,13 +54,22 @@ public class Generator
             return "w";
         }
 
-        throw new Exception($"Invalid qbe type {type}");
+        return $":{type.Name}";
     }
 
     private void GenerateFuncDefinition(LocalFuncDefinitionNode node)
     {
         _variables.Clear();
-        var parameters = node.Parameters.Select(p => $"{QbeTypeName(p.Type)} %{p.Name}");
+
+        foreach (var parameter in node.Parameters)
+        {
+            _variables.Add(parameter.Name, new Variable
+            {
+                Identifier = $"%{parameter.Name}",
+                Type = parameter.Type
+            });
+        }
+        
         if (node.Global)
         {
             _builder.Append("export ");
@@ -68,7 +84,7 @@ public class Generator
         _builder.Append('$');
         _builder.Append(node.Name);
 
-        _builder.AppendLine($"({string.Join(", ", parameters)}) {{");
+        _builder.AppendLine($"({string.Join(", ", node.Parameters.Select(p => $"{QbeTypeName(p.Type)} %{p.Name}"))}) {{");
         _builder.AppendLine("@start");
         GenerateBlock(node.Body);
         if (!node.ReturnType.HasValue)
@@ -77,6 +93,12 @@ public class Generator
         }
 
         _builder.AppendLine("}");
+    }
+
+    private void GenerateStructDefinition(StructDefinitionNode structDefinition)
+    {
+        var fields = structDefinition.Fields.Select(f => QbeTypeName(f.Type));
+        _builder.AppendLine($"type :{structDefinition.Name} = {{ {string.Join(", ", fields)} }}");
     }
 
     private void GenerateBlock(BlockNode block)
@@ -167,6 +189,7 @@ public class Generator
                 GenerateBlock
             );
         }
+
         _builder.AppendLine($"@{endLabel}");
     }
 
@@ -185,12 +208,22 @@ public class Generator
 
     private void GenerateVariableAssignment(VariableAssignmentNode variableAssignment)
     {
-        _variables[variableAssignment.Name] = GenerateExpression(variableAssignment.Value);
+        var result = GenerateExpression(variableAssignment.Value);
+        _variables[variableAssignment.Name] = new Variable
+        {
+            Identifier = result,
+            Type = variableAssignment.Value.Type
+        };
     }
 
     private void GenerateVariableReassignment(VariableReassignmentNode variableReassignment)
     {
-        _variables[variableReassignment.Name] = GenerateExpression(variableReassignment.Value);
+        var result = GenerateExpression(variableReassignment.Value);
+        _variables[variableReassignment.Name] = new Variable
+        {
+            Identifier = result,
+            Type = variableReassignment.Value.Type
+        };
     }
 
     private void GenerateWhile(WhileNode whileStatement)
@@ -198,7 +231,7 @@ public class Generator
         var conditionLabel = GenName("loop_condition");
         var iterationLabel = GenName("loop_iteration");
         var endLabel = GenName("loop_end");
-        
+
         _breakLabels.Push(endLabel);
         _continueLabels.Push(conditionLabel);
 
@@ -209,7 +242,7 @@ public class Generator
         var result = GenerateExpression(whileStatement.Condition);
         _builder.AppendLine($"    jnz {result}, @{iterationLabel}, @{endLabel}");
         _builder.AppendLine($"@{endLabel}");
-        
+
         _continueLabels.Pop();
         _breakLabels.Pop();
     }
@@ -237,7 +270,16 @@ public class Generator
 
     private string GenerateStructMemberAccessor(StructMemberAccessorNode structMemberAccessor)
     {
-        throw new NotImplementedException();
+        var type = _variables.First(x => x.Key == structMemberAccessor.Fields[0]).Value.Type;
+        var def = _definitions.OfType<StructDefinitionNode>().FirstOrDefault(s => s.Name == type.Name);
+        if (def == null)
+        {
+            throw new Exception("def is null");
+        }
+
+        throw new NotImplementedException("Not finished yet");
+        
+        return $"load{QbeTypeName(structMemberAccessor.Type)} ";
     }
 
     private string GenerateBinaryExpression(BinaryExpressionNode binaryExpression)
@@ -247,7 +289,7 @@ public class Generator
 
     private string GenerateIdentifier(IdentifierNode identifier)
     {
-        return _variables[identifier.Identifier];
+        return _variables[identifier.Identifier].Identifier;
     }
 
     private string GenerateLiteral(LiteralNode literal)
@@ -300,4 +342,11 @@ public class Generator
         _prefixIndexes[prefix] = index + 1;
         return $"{prefix}_{index}";
     }
+    
+    private class Variable
+    {
+        public required string Identifier { get; init; }
+        public required NubType Type { get; init; }
+    }
 }
+

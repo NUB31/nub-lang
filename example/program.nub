@@ -1,12 +1,14 @@
 import "c";
 
+struct Human {
+    age: int64;
+    name: string;
+}
+
 global func main() {
-    let x = true;
-    while x {
-        if (true) {
-            puts("level 1");
-        }
-        puts("level 2");
-        break;
-    }
+    printName();
+}
+
+func printName(human: Human) {
+    puts(human.name);
 }
