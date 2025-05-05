@@ -7,8 +7,11 @@ public class Generator
 {
     private readonly List<DefinitionNode> _definitions;
     private readonly StringBuilder _builder = new();
+    private readonly Dictionary<string, int> _prefixIndexes = new();
     private readonly Dictionary<string, string> _variables = new();
     private readonly List<string> _strings = [];
+    private readonly Stack<string> _breakLabels = new();
+    private readonly Stack<string> _continueLabels = new();
 
     public Generator(List<DefinitionNode> definitions)
     {
@@ -54,6 +57,7 @@ public class Generator
         {
             _builder.Append("export ");
         }
+
         _builder.Append("function ");
         if (node.ReturnType.HasValue)
         {
@@ -117,12 +121,12 @@ public class Generator
 
     private void GenerateBreak()
     {
-        throw new NotImplementedException();
+        _builder.AppendLine($"    jmp @{_breakLabels.Peek()}");
     }
 
     private void GenerateContinue()
     {
-        throw new NotImplementedException();
+        _builder.AppendLine($"    jmp @{_continueLabels.Peek()}");
     }
 
     private void GenerateStatementFuncCall(FuncCallStatementNode funcCall)
@@ -140,7 +144,25 @@ public class Generator
 
     private void GenerateIf(IfNode ifStatement)
     {
-        throw new NotImplementedException();
+        var trueLabel = GenName("if_true");
+        var endLabel = GenName("if_end");
+        var falseLabel = GenName("if_false");
+
+        var result = GenerateExpression(ifStatement.Condition);
+        _builder.AppendLine($"    jnz {result}, @{trueLabel}, @{falseLabel}");
+        _builder.AppendLine($"@{trueLabel}");
+        GenerateBlock(ifStatement.Body);
+        _builder.AppendLine($"    jmp @{endLabel}");
+        _builder.AppendLine($"@{falseLabel}");
+        if (ifStatement.Else.HasValue)
+        {
+            ifStatement.Else.Value.Match
+            (
+                GenerateIf,
+                GenerateBlock
+            );
+        }
+        _builder.AppendLine($"@{endLabel}");
     }
 
     private void GenerateReturn(ReturnNode @return)
@@ -168,7 +190,23 @@ public class Generator
 
     private void GenerateWhile(WhileNode whileStatement)
     {
-        throw new NotImplementedException();
+        var conditionLabel = GenName("loop_condition");
+        var iterationLabel = GenName("loop_iteration");
+        var endLabel = GenName("loop_end");
+        
+        _breakLabels.Push(endLabel);
+        _continueLabels.Push(conditionLabel);
+
+        _builder.AppendLine($"    jmp @{conditionLabel}");
+        _builder.AppendLine($"@{iterationLabel}");
+        GenerateBlock(whileStatement.Body);
+        _builder.AppendLine($"@{conditionLabel}");
+        var result = GenerateExpression(whileStatement.Condition);
+        _builder.AppendLine($"    jnz {result}, @{iterationLabel}, @{endLabel}");
+        _builder.AppendLine($"@{endLabel}");
+        
+        _continueLabels.Pop();
+        _breakLabels.Pop();
     }
 
     private string GenerateExpression(ExpressionNode expression)
@@ -214,6 +252,16 @@ public class Generator
             _strings.Add(literal.Literal);
             return $"$str{_strings.Count}";
         }
+
+        if (literal.LiteralType.Equals(NubType.Int64) || literal.LiteralType.Equals(NubType.Int32))
+        {
+            return literal.Literal;
+        }
+
+        if (literal.LiteralType.Equals(NubType.Bool))
+        {
+            return bool.Parse(literal.Literal) ? "1" : "0";
+        }
         else
         {
             throw new NotImplementedException();
@@ -235,12 +283,16 @@ public class Generator
 
         var parameters = results.Select(p => $"{QbeTypeName(p.Item2)} {p.Item1}");
 
-        var output = GenName();
+        var output = GenName("var");
         _builder.AppendLine($"    %{output} ={QbeTypeName(funcCall.Type)} call ${funcCall.FuncCall.Name}({string.Join(", ", parameters)})");
 
         return $"%{output}";
     }
 
-    private int _nameIndex;
-    private string GenName() => "v" + ++_nameIndex;
+    private string GenName(string prefix)
+    {
+        var index = _prefixIndexes.GetValueOrDefault(prefix, 0);
+        _prefixIndexes[prefix] = index + 1;
+        return $"{prefix}_{index}";
+    }
 }

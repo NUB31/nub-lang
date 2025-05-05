@@ -10,6 +10,7 @@ _start:
     syscall
 
 global nub_strcmp
+
 section .text
 nub_strcmp:
 	xor rdx, rdx

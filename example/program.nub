@@ -1,6 +1,7 @@
 import "c";
 
 global func main() {
-    let x = "test";
-    puts(x);
+    while true {
+        continue;
+    }
 }
