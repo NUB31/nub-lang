@@ -9,10 +9,9 @@ _start:
     mov rdi, 0
     syscall
 
-global base_str_cmp
-
+global nub_strcmp
 section .text
-base_str_cmp:
+nub_strcmp:
 	xor rdx, rdx
 .loop:
 	mov al, [rsi + rdx]
