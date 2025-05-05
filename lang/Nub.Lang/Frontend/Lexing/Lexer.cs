@@ -5,6 +5,7 @@ public class Lexer
     private static readonly Dictionary<string, Symbol> Keywords = new()
     { 
         ["func"] = Symbol.Func,
+        ["global"] = Symbol.Global,
         ["extern"] = Symbol.Extern,
         ["import"] = Symbol.Import,
         ["let"] = Symbol.Let,

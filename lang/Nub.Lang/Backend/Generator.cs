@@ -50,7 +50,11 @@ public class Generator
     {
         _variables.Clear();
         var parameters = node.Parameters.Select(p => $"{QbeTypeName(p.Type)} %{p.Name}");
-        _builder.Append("export function ");
+        if (node.Global)
+        {
+            _builder.Append("export ");
+        }
+        _builder.Append("function ");
         if (node.ReturnType.HasValue)
         {
             _builder.Append($"{QbeTypeName(node.ReturnType.Value)} ");
@@ -113,10 +117,12 @@ public class Generator
 
     private void GenerateBreak()
     {
+        throw new NotImplementedException();
     }
 
     private void GenerateContinue()
     {
+        throw new NotImplementedException();
     }
 
     private void GenerateStatementFuncCall(FuncCallStatementNode funcCall)
@@ -134,6 +140,7 @@ public class Generator
 
     private void GenerateIf(IfNode ifStatement)
     {
+        throw new NotImplementedException();
     }
 
     private void GenerateReturn(ReturnNode @return)
@@ -161,6 +168,7 @@ public class Generator
 
     private void GenerateWhile(WhileNode whileStatement)
     {
+        throw new NotImplementedException();
     }
 
     private string GenerateExpression(ExpressionNode expression)

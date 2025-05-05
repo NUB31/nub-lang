@@ -44,6 +44,7 @@ public class Parser
         return keyword.Symbol switch
         {
             Symbol.Func => ParseFuncDefinition(),
+            Symbol.Global => ParseGlobalFuncDefinition(),
             Symbol.Extern => ParseExternFuncDefinition(),
             Symbol.Struct => ParseStruct(),
             _ => throw new Exception("Unexpected symbol: " + keyword.Symbol)
@@ -72,7 +73,33 @@ public class Parser
 
         var body = ParseBlock();
 
-        return new LocalFuncDefinitionNode(name.Value, parameters, body, returnType);
+        return new LocalFuncDefinitionNode(name.Value, parameters, body, returnType, false);
+    }
+    
+    private LocalFuncDefinitionNode ParseGlobalFuncDefinition()
+    {
+        ExpectSymbol(Symbol.Func);
+        var name = ExpectIdentifier();
+        List<FuncParameter> parameters = [];
+        ExpectSymbol(Symbol.OpenParen);
+        if (!TryExpectSymbol(Symbol.CloseParen))
+        {
+            while (!TryExpectSymbol(Symbol.CloseParen))
+            {
+                parameters.Add(ParseFuncParameter());
+                TryExpectSymbol(Symbol.Comma);
+            }
+        }
+
+        var returnType = Optional<NubType>.Empty();
+        if (TryExpectSymbol(Symbol.Colon))
+        {
+            returnType = ParseTypeInstance();
+        }
+
+        var body = ParseBlock();
+
+        return new LocalFuncDefinitionNode(name.Value, parameters, body, returnType, true);
     }
 
     private ExternFuncDefinitionNode ParseExternFuncDefinition()
