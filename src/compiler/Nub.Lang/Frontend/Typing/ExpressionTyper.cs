@@ -179,8 +179,8 @@ public class ExpressionTyper
             case StructInitializerNode structInitializer:
                 PopulateStructInitializer(structInitializer);
                 break;
-            case StructMemberAccessorNode structMemberAccessor:
-                GenerateStructMemberAccessorNode(structMemberAccessor);
+            case StructFieldAccessorNode structMemberAccessor:
+                PopulateStructMemberAccessorNode(structMemberAccessor);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
@@ -262,43 +262,29 @@ public class ExpressionTyper
         structInitializer.Type = structInitializer.StructType;
     }
 
-    // TODO: Fix this ugly ass code
-    private void GenerateStructMemberAccessorNode(StructMemberAccessorNode structMemberAccessor)
+    private void PopulateStructMemberAccessorNode(StructFieldAccessorNode structFieldAccessor)
     {
-        var variable = _variables.FirstOrDefault(v => v.Name == structMemberAccessor.Fields[0]);
-        if (variable == null)
+        PopulateExpression(structFieldAccessor.Struct);
+    
+        var structType = structFieldAccessor.Struct.Type;
+        if (structType == null)
         {
-            throw new Exception($"Variable {structMemberAccessor.Fields[0]} is not defined");
+            throw new Exception($"Cannot access field on non-struct type: {structFieldAccessor.Struct}");
         }
-        
-        var definition = _structDefinitions.FirstOrDefault(sd => sd.Name == variable.Type.Name);
-        if (definition == null)
+    
+        var structDefinition = _structDefinitions.FirstOrDefault(s => s.Name == structType.Name);
+        if (structDefinition == null)
         {
-            throw new Exception($"Struct {structMemberAccessor.Fields[0]} is not defined");
+            throw new Exception($"Struct {structType.Name} is not defined");
         }
-
-        for (var i = 1; i < structMemberAccessor.Fields.Count - 1; i++)
+    
+        var field = structDefinition.Fields.FirstOrDefault(f => f.Name == structFieldAccessor.Field);
+        if (field == null)
         {
-            var member = definition.Fields.FirstOrDefault(m => m.Name == structMemberAccessor.Fields[i]);
-            if (member == null)
-            {
-                throw new Exception($"Member {structMemberAccessor.Fields[i]} does not exist on struct {definition.Name}");
-            }
-            
-            definition = _structDefinitions.FirstOrDefault(sd => sd.Name == member.Type.Name);
-            if (definition == null)
-            {
-                throw new Exception($"Struct {structMemberAccessor.Fields[i]} is not defined");
-            }
+            throw new Exception($"Field {structFieldAccessor.Field} is not defined in struct {structType.Name}");
         }
-        
-        var tmp = definition.Fields.FirstOrDefault(m => m.Name == structMemberAccessor.Fields.Last());
-        if (tmp == null)
-        {
-            throw new Exception($"Member {structMemberAccessor.Fields.Last()} does not exist on struct {definition.Name}");
-        }
-        
-        structMemberAccessor.Type = tmp.Type;
+    
+        structFieldAccessor.Type = field.Type;
     }
 
     private class Variable(string name, NubType type)

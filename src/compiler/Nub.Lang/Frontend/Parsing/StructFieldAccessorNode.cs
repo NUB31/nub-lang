@@ -1,6 +1,7 @@
 ﻿namespace Nub.Lang.Frontend.Parsing;
 
-public class StructFieldAccessorNode(List<string> fields) : ExpressionNode
+public class StructFieldAccessorNode(ExpressionNode @struct, string field) : ExpressionNode
 {
-    public List<string> Fields { get; } = fields;
+    public ExpressionNode Struct { get; } = @struct;
+    public string Field { get; } = field;
 }

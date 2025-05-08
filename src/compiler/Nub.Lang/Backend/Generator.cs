@@ -44,17 +44,22 @@ public class Generator
 
     private string QbeTypeName(NubType type)
     {
-        if (type.Equals(NubType.Int64) || type.Equals(NubType.String))
-        {
-            return "l";
-        }
-
         if (type.Equals(NubType.Int32) || type.Equals(NubType.Bool))
         {
             return "w";
         }
 
-        return $":{type.Name}";
+        return "l";
+    }
+
+    private int QbeTypeSize(NubType type)
+    {
+        if (type.Equals(NubType.Int32) || type.Equals(NubType.Bool))
+        {
+            return 4;
+        }
+
+        return 8;
     }
 
     private void GenerateFuncDefinition(LocalFuncDefinitionNode node)
@@ -261,25 +266,49 @@ public class Generator
                 return GenerateLiteral(literal);
             case StructInitializerNode structInitializer:
                 return GenerateStructInitializer(structInitializer);
-            case StructMemberAccessorNode structMemberAccessor:
-                return GenerateStructMemberAccessor(structMemberAccessor);
+            case StructFieldAccessorNode structMemberAccessor:
+                return GenerateStructFieldAccessor(structMemberAccessor);
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
         }
     }
 
-    private string GenerateStructMemberAccessor(StructMemberAccessorNode structMemberAccessor)
+    private string GenerateStructFieldAccessor(StructFieldAccessorNode structFieldAccessor)
     {
-        var type = _variables.First(x => x.Key == structMemberAccessor.Fields[0]).Value.Type;
-        var def = _definitions.OfType<StructDefinitionNode>().FirstOrDefault(s => s.Name == type.Name);
-        if (def == null)
-        {
-            throw new Exception("def is null");
-        }
+        var structType = structFieldAccessor.Struct.Type;
+        var structDefinition = _definitions
+            .OfType<StructDefinitionNode>()
+            .FirstOrDefault(s => s.Name == structType.Name);
 
-        throw new NotImplementedException("Not finished yet");
+        if (structDefinition == null)
+        {
+            throw new Exception($"Struct {structType.Name} is not defined");
+        }
+    
+        var @struct = GenerateExpression(structFieldAccessor.Struct);
+    
+        var fieldIndex = -1;
+        for (var i = 0; i < structDefinition.Fields.Count; i++)
+        {
+            if (structDefinition.Fields[i].Name == structFieldAccessor.Field)
+            {
+                fieldIndex = i;
+                break;
+            }
+        }
+    
+        if (fieldIndex == -1)
+        {
+            throw new Exception($"Field {structFieldAccessor.Field} is not defined in struct {structType.Name}");
+        }
+    
+        var offsetLabel = GenName("offset");
+        _builder.AppendLine($"    %{offsetLabel} ={QbeTypeName(structFieldAccessor.Type)} add {@struct}, {fieldIndex * QbeTypeSize(structFieldAccessor.Type)}");
         
-        return $"load{QbeTypeName(structMemberAccessor.Type)} ";
+        var outputLabel = GenName("field");
+        _builder.AppendLine($"    %{outputLabel} ={QbeTypeName(structFieldAccessor.Type)} load{QbeTypeName(structFieldAccessor.Type)} %{offsetLabel}");
+    
+        return $"%{outputLabel}";
     }
 
     private string GenerateBinaryExpression(BinaryExpressionNode binaryExpression)
@@ -317,7 +346,44 @@ public class Generator
 
     private string GenerateStructInitializer(StructInitializerNode structInitializer)
     {
-        throw new NotImplementedException();
+        var structDefinition = _definitions.OfType<StructDefinitionNode>()
+            .FirstOrDefault(s => s.Name == structInitializer.StructType.Name);
+
+        if (structDefinition == null)
+        {
+            throw new Exception($"Struct {structInitializer.StructType.Name} is not defined");
+        }
+
+        var structVar = GenName("struct");
+
+        var size = structDefinition.Fields.Sum(x => QbeTypeSize(x.Type));
+        _builder.AppendLine($"    %{structVar} =l alloc8 {size}");
+
+        for (var i = 0; i < structDefinition.Fields.Count; i++)
+        {
+            var field = structDefinition.Fields[i];
+            
+            if (structInitializer.Initializers.TryGetValue(field.Name, out var fieldValue))
+            {
+                var var = GenerateExpression(fieldValue);
+                var offsetLabel = GenName("offset");
+                _builder.AppendLine($"    %{offsetLabel} =l add %{structVar}, {i * QbeTypeSize(field.Type)}");
+                _builder.AppendLine($"    store{QbeTypeName(field.Type)} {var}, %{offsetLabel}");
+            }
+            else if (field.Value.HasValue)
+            {
+                var var = GenerateExpression(field.Value.Value);
+                var offsetLabel = GenName("offset");
+                _builder.AppendLine($"    %{offsetLabel} =l add %{structVar}, {i * QbeTypeSize(field.Type)}");
+                _builder.AppendLine($"    store{QbeTypeName(field.Type)} {var}, %{offsetLabel}");
+            }
+            else
+            {
+                throw new Exception($"Field {field.Name} on struct {structInitializer.StructType.Name} is not initialized");
+            }
+        }
+
+        return $"%{structVar}";
     }
 
     private string GenerateExpressionFuncCall(FuncCallExpressionNode funcCall)

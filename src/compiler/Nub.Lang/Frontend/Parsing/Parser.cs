@@ -396,7 +396,9 @@ public class Parser
                         return new StructInitializerNode(type, initializers);
                     }
                     default:
+                    {
                         throw new Exception($"Unknown symbol: {symbolToken.Symbol}");
+                    }
                 }
             }
             default:
@@ -421,18 +423,15 @@ public class Parser
                     case Symbol.Period:
                     {
                         Next();
-                        List<string> members =
-                        [
-                            identifier.Value,
-                            ExpectIdentifier().Value
-                        ];
-
-                        while (TryExpectSymbol(Symbol.Period))
+                        ExpressionNode result = new IdentifierNode(identifier.Value);
+                        
+                        do
                         {
-                            members.Add(ExpectIdentifier().Value);
-                        }
+                            var field = ExpectIdentifier();
+                            result = new StructFieldAccessorNode(result, field.Value); 
+                        } while (TryExpectSymbol(Symbol.Period));
 
-                        return new StructMemberAccessorNode(members);
+                        return result;
                     }
                     case Symbol.OpenParen:
                     {
