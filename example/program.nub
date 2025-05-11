@@ -4,4 +4,8 @@ global func main() {
     if 3 / 3 == 1 {
         puts("uwu");
     }
+
+    while 1 == 1 {
+        puts("loop");
+    }
 }

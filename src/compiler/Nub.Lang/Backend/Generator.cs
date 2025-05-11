@@ -176,9 +176,9 @@ public class Generator
 
     private void GenerateIf(IfNode ifStatement)
     {
-        var trueLabel = GenName("if_true");
-        var endLabel = GenName("if_end");
-        var falseLabel = GenName("if_false");
+        var trueLabel = GenName("true");
+        var falseLabel = GenName("false");
+        var endLabel = GenName("endif");
 
         var result = GenerateExpression(ifStatement.Condition);
         _builder.AppendLine($"    jnz {result}, @{trueLabel}, @{falseLabel}");
@@ -233,9 +233,9 @@ public class Generator
 
     private void GenerateWhile(WhileNode whileStatement)
     {
-        var conditionLabel = GenName("loop_condition");
-        var iterationLabel = GenName("loop_iteration");
-        var endLabel = GenName("loop_end");
+        var conditionLabel = GenName("condition");
+        var iterationLabel = GenName("iteration");
+        var endLabel = GenName("endloop");
 
         _breakLabels.Push(endLabel);
         _continueLabels.Push(conditionLabel);
@@ -613,11 +613,11 @@ public class Generator
         return $"%{output}";
     }
 
-    private string GenName(string prefix = "var")
+    private string GenName(string prefix = "v")
     {
         var index = _prefixIndexes.GetValueOrDefault(prefix, 0);
         _prefixIndexes[prefix] = index + 1;
-        return $"{prefix}_{index}";
+        return $"{prefix}{index}";
     }
 
     private class Variable
