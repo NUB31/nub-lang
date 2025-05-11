@@ -74,7 +74,7 @@ public class Generator
                 Type = parameter.Type
             });
         }
-        
+
         if (node.Global)
         {
             _builder.Append("export ");
@@ -284,9 +284,9 @@ public class Generator
         {
             throw new Exception($"Struct {structType.Name} is not defined");
         }
-    
+
         var @struct = GenerateExpression(structFieldAccessor.Struct);
-    
+
         var fieldIndex = -1;
         for (var i = 0; i < structDefinition.Fields.Count; i++)
         {
@@ -296,24 +296,235 @@ public class Generator
                 break;
             }
         }
-    
+
         if (fieldIndex == -1)
         {
             throw new Exception($"Field {structFieldAccessor.Field} is not defined in struct {structType.Name}");
         }
-    
+
         var offsetLabel = GenName("offset");
         _builder.AppendLine($"    %{offsetLabel} ={QbeTypeName(structFieldAccessor.Type)} add {@struct}, {fieldIndex * QbeTypeSize(structFieldAccessor.Type)}");
-        
+
         var outputLabel = GenName("field");
         _builder.AppendLine($"    %{outputLabel} ={QbeTypeName(structFieldAccessor.Type)} load{QbeTypeName(structFieldAccessor.Type)} %{offsetLabel}");
-    
+
         return $"%{outputLabel}";
     }
 
     private string GenerateBinaryExpression(BinaryExpressionNode binaryExpression)
     {
-        throw new NotImplementedException();
+        var left = GenerateExpression(binaryExpression.Left);
+        var right = GenerateExpression(binaryExpression.Right);
+        var outputLabel = GenName();
+        
+        switch (binaryExpression.Operator)
+        {
+            case BinaryExpressionOperator.Equal:
+            {
+                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w ceql {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w ceqw {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+
+                if (binaryExpression.Left.Type.Equals(NubType.String) && binaryExpression.Right.Type.Equals(NubType.String))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w call $nub_strcmp(l {left}, l {right})");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w ceqw {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                break;
+            }
+            case BinaryExpressionOperator.NotEqual:
+            {
+                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w cnel {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w cnew {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+
+                if (binaryExpression.Left.Type.Equals(NubType.String) && binaryExpression.Right.Type.Equals(NubType.String))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w call $nub_strcmp(l {left}, l {right})");
+                    _builder.AppendLine($"    %{outputLabel} =w xor %{outputLabel}, 1");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w cnew {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                break;
+            }
+            case BinaryExpressionOperator.GreaterThan:
+            {
+                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w csgtl {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w csgtw {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w csgtw {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                break;
+            }
+            case BinaryExpressionOperator.GreaterThanOrEqual:
+            {
+                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w csgel {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w csgew {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w csgew {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                break;
+            }
+            case BinaryExpressionOperator.LessThan:
+            {
+                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w csltl {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w csltw {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w csltw {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                break;
+            }
+            case BinaryExpressionOperator.LessThanOrEqual:
+            {
+                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w cslel {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w cslew {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w cslew {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                break;
+            }
+            case BinaryExpressionOperator.Plus:
+            {
+                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =l add {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w add {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                break;
+            }
+            case BinaryExpressionOperator.Minus:
+            {
+                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =l sub {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w sub {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                break;
+            }
+            case BinaryExpressionOperator.Multiply:
+            {
+                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =l mul {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w mul {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                break;
+            }
+            case BinaryExpressionOperator.Divide:
+            {
+                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =l div {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                
+                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                {
+                    _builder.AppendLine($"    %{outputLabel} =w div {left}, {right}");
+                    return $"%{outputLabel}";
+                }
+                break;
+            }
+            default:
+            {
+                throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        throw new NotSupportedException($"Binary operator {binaryExpression.Operator} for types left: {binaryExpression.Left.Type}, right: {binaryExpression.Right.Type} not supported");
     }
 
     private string GenerateIdentifier(IdentifierNode identifier)
@@ -362,7 +573,7 @@ public class Generator
         for (var i = 0; i < structDefinition.Fields.Count; i++)
         {
             var field = structDefinition.Fields[i];
-            
+
             if (structInitializer.Initializers.TryGetValue(field.Name, out var fieldValue))
             {
                 var var = GenerateExpression(fieldValue);
@@ -396,23 +607,22 @@ public class Generator
 
         var parameters = results.Select(p => $"{QbeTypeName(p.Item2)} {p.Item1}");
 
-        var output = GenName("var");
+        var output = GenName();
         _builder.AppendLine($"    %{output} ={QbeTypeName(funcCall.Type)} call ${funcCall.FuncCall.Name}({string.Join(", ", parameters)})");
 
         return $"%{output}";
     }
 
-    private string GenName(string prefix)
+    private string GenName(string prefix = "var")
     {
         var index = _prefixIndexes.GetValueOrDefault(prefix, 0);
         _prefixIndexes[prefix] = index + 1;
         return $"{prefix}_{index}";
     }
-    
+
     private class Variable
     {
         public required string Identifier { get; init; }
         public required NubType Type { get; init; }
     }
 }
-
