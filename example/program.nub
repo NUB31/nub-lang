@@ -6,6 +6,7 @@ global func main() {
     }
 
     while 1 == 1 {
-        puts("loop");
+        puts("test");
+        break;
     }
 }

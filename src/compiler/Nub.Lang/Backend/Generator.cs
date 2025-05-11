@@ -549,10 +549,8 @@ public class Generator
         {
             return bool.Parse(literal.Literal) ? "1" : "0";
         }
-        else
-        {
-            throw new NotImplementedException();
-        }
+
+        throw new NotSupportedException($"Literal {literal.LiteralType} is not supported");
     }
 
     private string GenerateStructInitializer(StructInitializerNode structInitializer)
