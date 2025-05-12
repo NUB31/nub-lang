@@ -42,66 +42,84 @@ public class Generator
         return _builder.ToString();
     }
 
-    private string QbeTypeName(NubType type)
+    private static string QbeTypeName(NubType type)
     {
-        if (type is NubPrimitiveType primitiveType)
+        switch (type)
         {
-            switch (primitiveType.Kind)
+            case NubPrimitiveType primitiveType:
             {
-                case PrimitiveTypeKind.I64:
-                case PrimitiveTypeKind.U64:
-                case PrimitiveTypeKind.String:
-                case PrimitiveTypeKind.Any:
-                    return "l";
-                case PrimitiveTypeKind.I32:
-                case PrimitiveTypeKind.U32:
-                case PrimitiveTypeKind.I16:
-                case PrimitiveTypeKind.U16:
-                case PrimitiveTypeKind.I8:
-                case PrimitiveTypeKind.U8:
-                case PrimitiveTypeKind.Bool:
-                    return "w";
-                case PrimitiveTypeKind.F64:
-                    return "d";
-                case PrimitiveTypeKind.F32:
-                    return "s";
-                default:
-                    throw new ArgumentOutOfRangeException();
+                switch (primitiveType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                    case PrimitiveTypeKind.String:
+                    case PrimitiveTypeKind.Any:
+                        return "l";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                    case PrimitiveTypeKind.Bool:
+                        return "w";
+                    case PrimitiveTypeKind.F64:
+                        return "d";
+                    case PrimitiveTypeKind.F32:
+                        return "s";
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            case NubCustomType nubCustomType:
+            {
+                return "l";
+            }
+            default:
+            {
+                throw new NotImplementedException();
             }
         }
-
-        throw new NotImplementedException();
     }
 
-    private int QbeTypeSize(NubType type)
+    private static int QbeTypeSize(NubType type)
     {
-        if (type is NubPrimitiveType primitiveType)
+        switch (type)
         {
-            switch (primitiveType.Kind)
+            case NubPrimitiveType primitiveType:
             {
-                case PrimitiveTypeKind.I64:
-                case PrimitiveTypeKind.U64:
-                case PrimitiveTypeKind.String:
-                case PrimitiveTypeKind.Any:
-                    return 8;
-                case PrimitiveTypeKind.I32:
-                case PrimitiveTypeKind.U32:
-                case PrimitiveTypeKind.I16:
-                case PrimitiveTypeKind.U16:
-                case PrimitiveTypeKind.I8:
-                case PrimitiveTypeKind.U8:
-                case PrimitiveTypeKind.Bool:
-                    return 4;
-                case PrimitiveTypeKind.F64:
-                    return 8;
-                case PrimitiveTypeKind.F32:
-                    return 4;
-                default:
-                    throw new ArgumentOutOfRangeException();
+                switch (primitiveType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                    case PrimitiveTypeKind.String:
+                    case PrimitiveTypeKind.Any:
+                        return 8;
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                    case PrimitiveTypeKind.Bool:
+                        return 4;
+                    case PrimitiveTypeKind.F64:
+                        return 8;
+                    case PrimitiveTypeKind.F32:
+                        return 4;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            case NubCustomType nubCustomType:
+            {
+                return 8;
+            }
+            default:
+            {
+                throw new NotImplementedException();
             }
         }
-
-        throw new NotImplementedException();
     }
 
     private void GenerateFuncDefinition(LocalFuncDefinitionNode node)

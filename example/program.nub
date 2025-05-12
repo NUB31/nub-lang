@@ -1,5 +1,16 @@
 import c;
 
+struct Human {
+    age: i64;
+    name: string;
+}
+
 global func main() {
-    printf("something %s\n", "your mom");
+    me = new Human
+    {
+        age = 21;
+        name = "Oliver";
+    };
+    
+    printf("My name is %s and i am %d years old\n", me.name, me.age);
 }
