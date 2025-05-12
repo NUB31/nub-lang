@@ -8,7 +8,6 @@ public class Lexer
         ["global"] = Symbol.Global,
         ["extern"] = Symbol.Extern,
         ["import"] = Symbol.Import,
-        ["let"] = Symbol.Let,
         ["if"] = Symbol.If,
         ["else"] = Symbol.Else,
         ["while"] = Symbol.While,

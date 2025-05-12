@@ -5,8 +5,8 @@ section .text
 _start:
     call gc_init
     call main
+	mov rdi,  rax
     mov rax, 60
-    mov rdi, 0
     syscall
 
 global nub_strcmp

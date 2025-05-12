@@ -13,7 +13,6 @@ public enum Symbol
     Global,
     Func,
     Return,
-    Let,
     If,
     Else,
     While,

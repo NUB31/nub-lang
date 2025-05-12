@@ -68,14 +68,14 @@ public class Parser
         var returnType = Optional<NubType>.Empty();
         if (TryExpectSymbol(Symbol.Colon))
         {
-            returnType = ParseTypeInstance();
+            returnType = ParseType();
         }
 
         var body = ParseBlock();
 
         return new LocalFuncDefinitionNode(name.Value, parameters, body, returnType, false);
     }
-    
+
     private LocalFuncDefinitionNode ParseGlobalFuncDefinition()
     {
         ExpectSymbol(Symbol.Func);
@@ -94,7 +94,7 @@ public class Parser
         var returnType = Optional<NubType>.Empty();
         if (TryExpectSymbol(Symbol.Colon))
         {
-            returnType = ParseTypeInstance();
+            returnType = ParseType();
         }
 
         var body = ParseBlock();
@@ -120,7 +120,7 @@ public class Parser
         var returnType = Optional<NubType>.Empty();
         if (TryExpectSymbol(Symbol.Colon))
         {
-            returnType = ParseTypeInstance();
+            returnType = ParseType();
         }
 
         ExpectSymbol(Symbol.Semicolon);
@@ -140,7 +140,7 @@ public class Parser
         {
             var variableName = ExpectIdentifier().Value;
             ExpectSymbol(Symbol.Colon);
-            var variableType = ParseTypeInstance();
+            var variableType = ParseType();
 
             var variableValue = Optional<ExpressionNode>.Empty();
 
@@ -159,11 +159,19 @@ public class Parser
 
     private FuncParameter ParseFuncParameter()
     {
+        var variadic = false;
+        if (TryExpectSymbol(Symbol.Period))
+        {
+            ExpectSymbol(Symbol.Period);
+            ExpectSymbol(Symbol.Period);
+            variadic = true;
+        }
+
         var name = ExpectIdentifier();
         ExpectSymbol(Symbol.Colon);
-        var type = ParseTypeInstance();
+        var type = ParseType();
 
-        return new FuncParameter(name.Value, type);
+        return new FuncParameter(name.Value, type, variadic);
     }
 
     private StatementNode ParseStatement()
@@ -193,7 +201,7 @@ public class Parser
                     {
                         var value = ParseExpression();
                         ExpectSymbol(Symbol.Semicolon);
-                        return new VariableReassignmentNode(identifier.Value, value);
+                        return new VariableAssignmentNode(identifier.Value, value);
                     }
                     default:
                     {
@@ -206,7 +214,6 @@ public class Parser
                 return symbol.Symbol switch
                 {
                     Symbol.Return => ParseReturn(),
-                    Symbol.Let => ParseVariableAssignment(),
                     Symbol.If => ParseIf(),
                     Symbol.While => ParseWhile(),
                     Symbol.Break => ParseBreak(),
@@ -231,16 +238,6 @@ public class Parser
         }
 
         return new ReturnNode(value);
-    }
-
-    private VariableAssignmentNode ParseVariableAssignment()
-    {
-        var name = ExpectIdentifier().Value;
-        ExpectSymbol(Symbol.Assign);
-        var value = ParseExpression();
-        ExpectSymbol(Symbol.Semicolon);
-
-        return new VariableAssignmentNode(name, value);
     }
 
     private IfNode ParseIf()
@@ -381,7 +378,7 @@ public class Parser
                     }
                     case Symbol.New:
                     {
-                        var type = ParseTypeInstance();
+                        var type = ParseType();
                         Dictionary<string, ExpressionNode> initializers = [];
                         ExpectSymbol(Symbol.OpenBrace);
                         while (!TryExpectSymbol(Symbol.CloseBrace))
@@ -424,11 +421,11 @@ public class Parser
                     {
                         Next();
                         ExpressionNode result = new IdentifierNode(identifier.Value);
-                        
+
                         do
                         {
                             var field = ExpectIdentifier();
-                            result = new StructFieldAccessorNode(result, field.Value); 
+                            result = new StructFieldAccessorNode(result, field.Value);
                         } while (TryExpectSymbol(Symbol.Period));
 
                         return result;
@@ -466,22 +463,10 @@ public class Parser
         return new BlockNode(statements);
     }
 
-    private NubType ParseTypeInstance()
+    private NubType ParseType()
     {
-        var parameters = new List<NubType>();
         var name = ExpectIdentifier().Value;
-
-        if (TryExpectSymbol(Symbol.LessThan))
-        {
-            do
-            {
-                parameters.Add(ParseTypeInstance());
-            } while (TryExpectSymbol(Symbol.Comma));
-
-            ExpectSymbol(Symbol.GreaterThan);
-        }
-
-        return new NubType(name, parameters.ToArray());
+        return new NubType(name);
     }
 
     private Token ExpectToken()

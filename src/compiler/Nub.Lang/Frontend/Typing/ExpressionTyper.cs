@@ -102,9 +102,6 @@ public class ExpressionTyper
             case VariableAssignmentNode variableAssignment:
                 PopulateVariableAssignment(variableAssignment);
                 break;
-            case VariableReassignmentNode variableReassignment:
-                PopulateVariableReassignment(variableReassignment);
-                break;
             case WhileNode whileStatement:
                 PopulateWhileStatement(whileStatement);
                 break;
@@ -149,9 +146,9 @@ public class ExpressionTyper
         _variables.Push(new Variable(variableAssignment.Name, variableAssignment.Value.Type));
     }
 
-    private void PopulateVariableReassignment(VariableReassignmentNode variableReassignment)
+    private void PopulateVariableReassignment(VariableAssignmentNode variableAssignment)
     {
-        PopulateExpression(variableReassignment.Value);
+        PopulateExpression(variableAssignment.Value);
     }
 
     private void PopulateWhileStatement(WhileNode whileStatement)
@@ -200,7 +197,7 @@ public class ExpressionTyper
             case BinaryExpressionOperator.LessThan:
             case BinaryExpressionOperator.LessThanOrEqual:
             {
-                binaryExpression.Type = new NubType("bool", []);
+                binaryExpression.Type = new NubType("bool");
                 break;
             }
             case BinaryExpressionOperator.Plus:

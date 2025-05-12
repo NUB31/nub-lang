@@ -85,16 +85,33 @@ public class Generator
         {
             _builder.Append($"{QbeTypeName(node.ReturnType.Value)} ");
         }
+        else
+        {
+            _builder.Append("l ");
+        }
 
         _builder.Append('$');
         _builder.Append(node.Name);
 
-        _builder.AppendLine($"({string.Join(", ", node.Parameters.Select(p => $"{QbeTypeName(p.Type)} %{p.Name}"))}) {{");
+        var parameterStrings = new List<string>();
+        foreach (var parameter in node.Parameters)
+        {
+            if (parameter.Variadic)
+            {
+                parameterStrings.Add("...");
+            }
+            else
+            {
+                parameterStrings.Add($"{QbeTypeName(parameter.Type)} %{parameter.Name}");
+            }
+        }
+        
+        _builder.AppendLine($"({string.Join(", ", parameterStrings)}) {{");
         _builder.AppendLine("@start");
         GenerateBlock(node.Body);
         if (!node.ReturnType.HasValue)
         {
-            _builder.AppendLine("    ret");
+            _builder.AppendLine("    ret 0");
         }
 
         _builder.AppendLine("}");
@@ -138,9 +155,6 @@ public class Generator
             case VariableAssignmentNode variableAssignment:
                 GenerateVariableAssignment(variableAssignment);
                 break;
-            case VariableReassignmentNode variableReassignment:
-                GenerateVariableReassignment(variableReassignment);
-                break;
             case WhileNode whileStatement:
                 GenerateWhile(whileStatement);
                 break;
@@ -163,15 +177,39 @@ public class Generator
 
     private void GenerateStatementFuncCall(FuncCallStatementNode funcCall)
     {
+        var parameterDefinition = _definitions
+            .OfType<LocalFuncDefinitionNode>()
+            .FirstOrDefault(d => d.Name == funcCall.FuncCall.Name)
+            ?.Parameters;
+        
+        parameterDefinition ??= _definitions
+            .OfType<ExternFuncDefinitionNode>()
+            .FirstOrDefault(d => d.Name == funcCall.FuncCall.Name)
+            ?.Parameters;
+        
+        if (parameterDefinition == null)
+        {
+            throw new Exception($"Unknown function {funcCall.FuncCall}");
+        }
+        
         var results = new List<(string, NubType)>();
         foreach (var parameter in funcCall.FuncCall.Parameters)
         {
             results.Add((GenerateExpression(parameter), parameter.Type));
         }
 
-        var parameters = results.Select(p => $"{QbeTypeName(p.Item2)} {p.Item1}");
+        var parameterStrings = new List<string>();
+        for (var i = 0; i < results.Count; i++)
+        {
+            if (parameterDefinition.Count > i && parameterDefinition[i].Variadic)
+            {
+                parameterStrings.Add("...");
+            }
+            
+            parameterStrings.Add($"{QbeTypeName(results[i].Item2)} {results[i].Item1}");
+        }
 
-        _builder.AppendLine($"    call ${funcCall.FuncCall.Name}({string.Join(", ", parameters)})");
+        _builder.AppendLine($"    call ${funcCall.FuncCall.Name}({string.Join(", ", parameterStrings)})");
     }
 
     private void GenerateIf(IfNode ifStatement)
@@ -218,16 +256,6 @@ public class Generator
         {
             Identifier = result,
             Type = variableAssignment.Value.Type
-        };
-    }
-
-    private void GenerateVariableReassignment(VariableReassignmentNode variableReassignment)
-    {
-        var result = GenerateExpression(variableReassignment.Value);
-        _variables[variableReassignment.Name] = new Variable
-        {
-            Identifier = result,
-            Type = variableReassignment.Value.Type
         };
     }
 
