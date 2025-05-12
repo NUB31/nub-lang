@@ -1,4 +1,4 @@
-import "c";
+import c;
 
 global func main() {
     printf("something %s\n", "your mom");

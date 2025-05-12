@@ -197,7 +197,7 @@ public class ExpressionTyper
             case BinaryExpressionOperator.LessThan:
             case BinaryExpressionOperator.LessThanOrEqual:
             {
-                binaryExpression.Type = new NubType("bool");
+                binaryExpression.Type = NubPrimitiveType.Bool;
                 break;
             }
             case BinaryExpressionOperator.Plus:

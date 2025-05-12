@@ -44,22 +44,64 @@ public class Generator
 
     private string QbeTypeName(NubType type)
     {
-        if (type.Equals(NubType.Int32) || type.Equals(NubType.Bool))
+        if (type is NubPrimitiveType primitiveType)
         {
-            return "w";
+            switch (primitiveType.Kind)
+            {
+                case PrimitiveTypeKind.I64:
+                case PrimitiveTypeKind.U64:
+                case PrimitiveTypeKind.String:
+                case PrimitiveTypeKind.Any:
+                    return "l";
+                case PrimitiveTypeKind.I32:
+                case PrimitiveTypeKind.U32:
+                case PrimitiveTypeKind.I16:
+                case PrimitiveTypeKind.U16:
+                case PrimitiveTypeKind.I8:
+                case PrimitiveTypeKind.U8:
+                case PrimitiveTypeKind.Bool:
+                    return "w";
+                case PrimitiveTypeKind.F64:
+                    return "d";
+                case PrimitiveTypeKind.F32:
+                    return "s";
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
-        return "l";
+        throw new NotImplementedException();
     }
 
     private int QbeTypeSize(NubType type)
     {
-        if (type.Equals(NubType.Int32) || type.Equals(NubType.Bool))
+        if (type is NubPrimitiveType primitiveType)
         {
-            return 4;
+            switch (primitiveType.Kind)
+            {
+                case PrimitiveTypeKind.I64:
+                case PrimitiveTypeKind.U64:
+                case PrimitiveTypeKind.String:
+                case PrimitiveTypeKind.Any:
+                    return 8;
+                case PrimitiveTypeKind.I32:
+                case PrimitiveTypeKind.U32:
+                case PrimitiveTypeKind.I16:
+                case PrimitiveTypeKind.U16:
+                case PrimitiveTypeKind.I8:
+                case PrimitiveTypeKind.U8:
+                case PrimitiveTypeKind.Bool:
+                    return 4;
+                case PrimitiveTypeKind.F64:
+                    return 8;
+                case PrimitiveTypeKind.F32:
+                    return 4;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
-        return 8;
+        throw new NotImplementedException();
     }
 
     private void GenerateFuncDefinition(LocalFuncDefinitionNode node)
@@ -349,25 +391,25 @@ public class Generator
         {
             case BinaryExpressionOperator.Equal:
             {
-                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I64))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w ceql {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w ceqw {left}, {right}");
                     return $"%{outputLabel}";
                 }
 
-                if (binaryExpression.Left.Type.Equals(NubType.String) && binaryExpression.Right.Type.Equals(NubType.String))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.String))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w call $nub_strcmp(l {left}, l {right})");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w ceqw {left}, {right}");
                     return $"%{outputLabel}";
@@ -376,26 +418,26 @@ public class Generator
             }
             case BinaryExpressionOperator.NotEqual:
             {
-                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I64))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w cnel {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w cnew {left}, {right}");
                     return $"%{outputLabel}";
                 }
 
-                if (binaryExpression.Left.Type.Equals(NubType.String) && binaryExpression.Right.Type.Equals(NubType.String))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.String))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w call $nub_strcmp(l {left}, l {right})");
                     _builder.AppendLine($"    %{outputLabel} =w xor %{outputLabel}, 1");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w cnew {left}, {right}");
                     return $"%{outputLabel}";
@@ -404,19 +446,19 @@ public class Generator
             }
             case BinaryExpressionOperator.GreaterThan:
             {
-                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I64))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csgtl {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csgtw {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csgtw {left}, {right}");
                     return $"%{outputLabel}";
@@ -425,19 +467,19 @@ public class Generator
             }
             case BinaryExpressionOperator.GreaterThanOrEqual:
             {
-                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I64))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csgel {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csgew {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csgew {left}, {right}");
                     return $"%{outputLabel}";
@@ -446,19 +488,19 @@ public class Generator
             }
             case BinaryExpressionOperator.LessThan:
             {
-                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I64))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csltl {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csltw {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csltw {left}, {right}");
                     return $"%{outputLabel}";
@@ -467,19 +509,19 @@ public class Generator
             }
             case BinaryExpressionOperator.LessThanOrEqual:
             {
-                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I64))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w cslel {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w cslew {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Bool) && binaryExpression.Right.Type.Equals(NubType.Bool))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w cslew {left}, {right}");
                     return $"%{outputLabel}";
@@ -488,13 +530,13 @@ public class Generator
             }
             case BinaryExpressionOperator.Plus:
             {
-                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I64))
                 {
                     _builder.AppendLine($"    %{outputLabel} =l add {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w add {left}, {right}");
                     return $"%{outputLabel}";
@@ -503,13 +545,13 @@ public class Generator
             }
             case BinaryExpressionOperator.Minus:
             {
-                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I64))
                 {
                     _builder.AppendLine($"    %{outputLabel} =l sub {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w sub {left}, {right}");
                     return $"%{outputLabel}";
@@ -518,13 +560,13 @@ public class Generator
             }
             case BinaryExpressionOperator.Multiply:
             {
-                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I64))
                 {
                     _builder.AppendLine($"    %{outputLabel} =l mul {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w mul {left}, {right}");
                     return $"%{outputLabel}";
@@ -533,13 +575,13 @@ public class Generator
             }
             case BinaryExpressionOperator.Divide:
             {
-                if (binaryExpression.Left.Type.Equals(NubType.Int64) && binaryExpression.Right.Type.Equals(NubType.Int64))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I64))
                 {
                     _builder.AppendLine($"    %{outputLabel} =l div {left}, {right}");
                     return $"%{outputLabel}";
                 }
                 
-                if (binaryExpression.Left.Type.Equals(NubType.Int32) && binaryExpression.Right.Type.Equals(NubType.Int32))
+                if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w div {left}, {right}");
                     return $"%{outputLabel}";
@@ -562,18 +604,18 @@ public class Generator
 
     private string GenerateLiteral(LiteralNode literal)
     {
-        if (literal.LiteralType.Equals(NubType.String))
+        if (literal.LiteralType.Equals(NubPrimitiveType.String))
         {
             _strings.Add(literal.Literal);
             return $"$str{_strings.Count}";
         }
 
-        if (literal.LiteralType.Equals(NubType.Int64) || literal.LiteralType.Equals(NubType.Int32))
+        if (literal.LiteralType.Equals(NubPrimitiveType.I64) || literal.LiteralType.Equals(NubPrimitiveType.I32))
         {
             return literal.Literal;
         }
 
-        if (literal.LiteralType.Equals(NubType.Bool))
+        if (literal.LiteralType.Equals(NubPrimitiveType.Bool))
         {
             return bool.Parse(literal.Literal) ? "1" : "0";
         }

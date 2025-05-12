@@ -20,12 +20,7 @@ public class Parser
         {
             if (TryExpectSymbol(Symbol.Import))
             {
-                var name = ExpectLiteral();
-                if (!name.Type.Equals(NubType.String))
-                {
-                    throw new Exception("Import statements must have a string literal value");
-                }
-
+                var name = ExpectIdentifier();
                 TryExpectSymbol(Symbol.Semicolon);
                 imports.Add(name.Value);
             }
@@ -466,7 +461,7 @@ public class Parser
     private NubType ParseType()
     {
         var name = ExpectIdentifier().Value;
-        return new NubType(name);
+        return NubType.Parse(name);
     }
 
     private Token ExpectToken()
