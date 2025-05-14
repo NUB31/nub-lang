@@ -42,7 +42,7 @@ public class Generator
         return _builder.ToString();
     }
 
-    private static string QbeTypeName(NubType type)
+    private static string SQT(NubType type)
     {
         switch (type)
         {
@@ -74,6 +74,93 @@ public class Generator
             case NubCustomType nubCustomType:
             {
                 return "l";
+            }
+            default:
+            {
+                throw new NotImplementedException();
+            }
+        }
+    }
+
+    private static string EQT(NubType type)
+    {
+        switch (type)
+        {
+            case NubPrimitiveType primitiveType:
+            {
+                switch (primitiveType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                    case PrimitiveTypeKind.String:
+                    case PrimitiveTypeKind.Any:
+                        return "l";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                        return "w";
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                        return "h";
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                        return "b";
+                    case PrimitiveTypeKind.Bool:
+                    case PrimitiveTypeKind.F64:
+                        return "d";
+                    case PrimitiveTypeKind.F32:
+                        return "s";
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            case NubCustomType nubCustomType:
+            {
+                return ":" + nubCustomType.Name;
+            }
+            default:
+            {
+                throw new NotImplementedException();
+            }
+        }
+    }
+    
+    private static string FQT(NubType type)
+    {
+        switch (type)
+        {
+            case NubPrimitiveType primitiveType:
+            {
+                switch (primitiveType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                    case PrimitiveTypeKind.String:
+                    case PrimitiveTypeKind.Any:
+                        return "l";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                        return "w";
+                    case PrimitiveTypeKind.I16:
+                        return "sh";
+                    case PrimitiveTypeKind.U16:
+                        return "uh";
+                    case PrimitiveTypeKind.I8:
+                        return "sb";
+                    case PrimitiveTypeKind.U8:
+                        return "ub";
+                    case PrimitiveTypeKind.Bool:
+                        return "b";
+                    case PrimitiveTypeKind.F64:
+                        return "d";
+                    case PrimitiveTypeKind.F32:
+                        return "s";
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            case NubCustomType nubCustomType:
+            {
+                return ":" + nubCustomType.Name;
             }
             default:
             {
@@ -143,7 +230,7 @@ public class Generator
         _builder.Append("function ");
         if (node.ReturnType.HasValue)
         {
-            _builder.Append($"{QbeTypeName(node.ReturnType.Value)} ");
+            _builder.Append($"{FQT(node.ReturnType.Value)} ");
         }
         else
         {
@@ -162,12 +249,32 @@ public class Generator
             }
             else
             {
-                parameterStrings.Add($"{QbeTypeName(parameter.Type)} %{parameter.Name}");
+                parameterStrings.Add($"{FQT(parameter.Type)} %{parameter.Name}");
             }
         }
         
         _builder.AppendLine($"({string.Join(", ", parameterStrings)}) {{");
         _builder.AppendLine("@start");
+        
+        foreach (var parameter in node.Parameters)
+        {
+            switch (FQT(parameter.Type))
+            {
+                case "sb":
+                    _builder.AppendLine($"    %{parameter.Name} =w extsb %{parameter.Name}");
+                    break;
+                case "ub":
+                    _builder.AppendLine($"    %{parameter.Name} =w extub %{parameter.Name}");
+                    break;
+                case "sh":
+                    _builder.AppendLine($"    %{parameter.Name} =w extsh %{parameter.Name}");
+                    break;
+                case "uh":
+                    _builder.AppendLine($"    %{parameter.Name} =w extuh %{parameter.Name}");
+                    break;
+            }
+        }
+        
         GenerateBlock(node.Body);
         if (!node.ReturnType.HasValue)
         {
@@ -179,7 +286,7 @@ public class Generator
 
     private void GenerateStructDefinition(StructDefinitionNode structDefinition)
     {
-        var fields = structDefinition.Fields.Select(f => QbeTypeName(f.Type));
+        var fields = structDefinition.Fields.Select(f => EQT(f.Type));
         _builder.AppendLine($"type :{structDefinition.Name} = {{ {string.Join(", ", fields)} }}");
     }
 
@@ -266,7 +373,7 @@ public class Generator
                 parameterStrings.Add("...");
             }
             
-            parameterStrings.Add($"{QbeTypeName(results[i].Item2)} {results[i].Item1}");
+            parameterStrings.Add($"{SQT(results[i].Item2)} {results[i].Item1}");
         }
 
         _builder.AppendLine($"    call ${funcCall.FuncCall.Name}({string.Join(", ", parameterStrings)})");
@@ -391,10 +498,10 @@ public class Generator
         }
 
         var offsetLabel = GenName("offset");
-        _builder.AppendLine($"    %{offsetLabel} ={QbeTypeName(structFieldAccessor.Type)} add {@struct}, {fieldIndex * QbeTypeSize(structFieldAccessor.Type)}");
+        _builder.AppendLine($"    %{offsetLabel} =l add {@struct}, {fieldIndex * QbeTypeSize(structFieldAccessor.Type)}");
 
         var outputLabel = GenName("field");
-        _builder.AppendLine($"    %{outputLabel} ={QbeTypeName(structFieldAccessor.Type)} load{QbeTypeName(structFieldAccessor.Type)} %{offsetLabel}");
+        _builder.AppendLine($"    %{outputLabel} ={SQT(structFieldAccessor.Type)} load{SQT(structFieldAccessor.Type)} %{offsetLabel}");
 
         return $"%{outputLabel}";
     }
@@ -665,14 +772,14 @@ public class Generator
                 var var = GenerateExpression(fieldValue);
                 var offsetLabel = GenName("offset");
                 _builder.AppendLine($"    %{offsetLabel} =l add %{structVar}, {i * QbeTypeSize(field.Type)}");
-                _builder.AppendLine($"    store{QbeTypeName(field.Type)} {var}, %{offsetLabel}");
+                _builder.AppendLine($"    store{SQT(field.Type)} {var}, %{offsetLabel}");
             }
             else if (field.Value.HasValue)
             {
                 var var = GenerateExpression(field.Value.Value);
                 var offsetLabel = GenName("offset");
                 _builder.AppendLine($"    %{offsetLabel} =l add %{structVar}, {i * QbeTypeSize(field.Type)}");
-                _builder.AppendLine($"    store{QbeTypeName(field.Type)} {var}, %{offsetLabel}");
+                _builder.AppendLine($"    store{SQT(field.Type)} {var}, %{offsetLabel}");
             }
             else
             {
@@ -691,10 +798,10 @@ public class Generator
             results.Add((GenerateExpression(parameter), parameter.Type));
         }
 
-        var parameters = results.Select(p => $"{QbeTypeName(p.Item2)} {p.Item1}");
+        var parameters = results.Select(p => $"{SQT(p.Item2)} {p.Item1}");
 
         var output = GenName();
-        _builder.AppendLine($"    %{output} ={QbeTypeName(funcCall.Type)} call ${funcCall.FuncCall.Name}({string.Join(", ", parameters)})");
+        _builder.AppendLine($"    %{output} ={SQT(funcCall.Type)} call ${funcCall.FuncCall.Name}({string.Join(", ", parameters)})");
 
         return $"%{output}";
     }

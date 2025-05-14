@@ -1,16 +1,13 @@
 import c;
 
 struct Human {
-    age: i64;
-    name: string;
+    age: i8;
 }
 
 global func main() {
-    me = new Human
-    {
-        age = 21;
-        name = "Oliver";
-    };
-    
-    printf("My name is %s and i am %d years old\n", me.name, me.age);
+    printf("%d\n", addbyte(10, 300));
+}
+
+func addbyte(a: i32, sb: i8): i32 {
+    return a + sb;
 }
