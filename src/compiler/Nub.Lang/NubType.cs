@@ -81,16 +81,19 @@ public class NubPrimitiveType : NubType
     {
         return kind switch
         {
-            PrimitiveTypeKind.I64 => "i64",
-            PrimitiveTypeKind.I32 => "i32",
-            PrimitiveTypeKind.I16 => "i16",
             PrimitiveTypeKind.I8 => "i8",
-            PrimitiveTypeKind.U64 => "u64",
-            PrimitiveTypeKind.U32 => "u32",
-            PrimitiveTypeKind.U16 => "u16",
+            PrimitiveTypeKind.I16 => "i16",
+            PrimitiveTypeKind.I32 => "i32",
+            PrimitiveTypeKind.I64 => "i64",
+            
             PrimitiveTypeKind.U8 => "u8",
-            PrimitiveTypeKind.F64 => "f64",
+            PrimitiveTypeKind.U16 => "u16",
+            PrimitiveTypeKind.U32 => "u32",
+            PrimitiveTypeKind.U64 => "u64",
+            
             PrimitiveTypeKind.F32 => "f32",
+            PrimitiveTypeKind.F64 => "f64",
+            
             PrimitiveTypeKind.Bool => "bool",
             PrimitiveTypeKind.String => "string",
             PrimitiveTypeKind.Any => "any",

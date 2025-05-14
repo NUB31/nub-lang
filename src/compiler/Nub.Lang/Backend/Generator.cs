@@ -123,7 +123,7 @@ public class Generator
             }
         }
     }
-    
+
     private static string FQT(NubType type)
     {
         switch (type)
@@ -254,10 +254,10 @@ public class Generator
                 parameterStrings.Add($"{FQT(parameter.Type)} %{parameter.Name}");
             }
         }
-        
+
         _builder.AppendLine($"({string.Join(", ", parameterStrings)}) {{");
         _builder.AppendLine("@start");
-        
+
         foreach (var parameter in node.Parameters)
         {
             switch (FQT(parameter.Type))
@@ -276,7 +276,7 @@ public class Generator
                     break;
             }
         }
-        
+
         GenerateBlock(node.Body);
         if (!node.ReturnType.HasValue)
         {
@@ -350,17 +350,17 @@ public class Generator
             .OfType<LocalFuncDefinitionNode>()
             .FirstOrDefault(d => d.Name == funcCall.FuncCall.Name)
             ?.Parameters;
-        
+
         parameterDefinition ??= _definitions
             .OfType<ExternFuncDefinitionNode>()
             .FirstOrDefault(d => d.Name == funcCall.FuncCall.Name)
             ?.Parameters;
-        
+
         if (parameterDefinition == null)
         {
             throw new Exception($"Unknown function {funcCall.FuncCall}");
         }
-        
+
         var results = new List<(string, NubType)>();
         foreach (var parameter in funcCall.FuncCall.Parameters)
         {
@@ -374,7 +374,7 @@ public class Generator
             {
                 parameterStrings.Add("...");
             }
-            
+
             parameterStrings.Add($"{SQT(results[i].Item2)} {results[i].Item1}");
         }
 
@@ -513,7 +513,7 @@ public class Generator
         var left = GenerateExpression(binaryExpression.Left);
         var right = GenerateExpression(binaryExpression.Right);
         var outputLabel = GenName();
-        
+
         switch (binaryExpression.Operator)
         {
             case BinaryExpressionOperator.Equal:
@@ -523,7 +523,7 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =w ceql {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w ceqw {left}, {right}");
@@ -535,12 +535,13 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =w call $nub_strcmp(l {left}, l {right})");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w ceqw {left}, {right}");
                     return $"%{outputLabel}";
                 }
+
                 break;
             }
             case BinaryExpressionOperator.NotEqual:
@@ -550,7 +551,7 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =w cnel {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w cnew {left}, {right}");
@@ -563,12 +564,13 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =w xor %{outputLabel}, 1");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w cnew {left}, {right}");
                     return $"%{outputLabel}";
                 }
+
                 break;
             }
             case BinaryExpressionOperator.GreaterThan:
@@ -578,18 +580,19 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =w csgtl {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csgtw {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csgtw {left}, {right}");
                     return $"%{outputLabel}";
                 }
+
                 break;
             }
             case BinaryExpressionOperator.GreaterThanOrEqual:
@@ -599,18 +602,19 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =w csgel {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csgew {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csgew {left}, {right}");
                     return $"%{outputLabel}";
                 }
+
                 break;
             }
             case BinaryExpressionOperator.LessThan:
@@ -620,18 +624,19 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =w csltl {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csltw {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w csltw {left}, {right}");
                     return $"%{outputLabel}";
                 }
+
                 break;
             }
             case BinaryExpressionOperator.LessThanOrEqual:
@@ -641,18 +646,19 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =w cslel {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w cslew {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.Bool))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w cslew {left}, {right}");
                     return $"%{outputLabel}";
                 }
+
                 break;
             }
             case BinaryExpressionOperator.Plus:
@@ -662,12 +668,13 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =l add {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w add {left}, {right}");
                     return $"%{outputLabel}";
                 }
+
                 break;
             }
             case BinaryExpressionOperator.Minus:
@@ -677,12 +684,13 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =l sub {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w sub {left}, {right}");
                     return $"%{outputLabel}";
                 }
+
                 break;
             }
             case BinaryExpressionOperator.Multiply:
@@ -692,12 +700,13 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =l mul {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w mul {left}, {right}");
                     return $"%{outputLabel}";
                 }
+
                 break;
             }
             case BinaryExpressionOperator.Divide:
@@ -707,12 +716,13 @@ public class Generator
                     _builder.AppendLine($"    %{outputLabel} =l div {left}, {right}");
                     return $"%{outputLabel}";
                 }
-                
+
                 if (binaryExpression.Left.Type.Equals(NubPrimitiveType.I32))
                 {
                     _builder.AppendLine($"    %{outputLabel} =w div {left}, {right}");
                     return $"%{outputLabel}";
                 }
+
                 break;
             }
             default:
@@ -721,7 +731,8 @@ public class Generator
             }
         }
 
-        throw new NotSupportedException($"Binary operator {binaryExpression.Operator} for types left: {binaryExpression.Left.Type}, right: {binaryExpression.Right.Type} not supported");
+        throw new NotSupportedException(
+            $"Binary operator {binaryExpression.Operator} for types left: {binaryExpression.Left.Type}, right: {binaryExpression.Right.Type} not supported");
     }
 
     private string GenerateIdentifier(IdentifierNode identifier)
@@ -748,6 +759,17 @@ public class Generator
         }
 
         throw new NotSupportedException($"Literal {literal.LiteralType} is not supported");
+    }
+
+    private string GenerateCast(string input, NubType inputType, string output, NubType outputType)
+    {
+        if (outputType is not NubPrimitiveType primitiveOutputType || inputType is not NubPrimitiveType primitiveInputType)
+        {
+            throw new NotSupportedException("Casting is only supported for primitive types");
+        }
+
+        // var instruction = 
+        return ""
     }
 
     private string GenerateStructInitializer(StructInitializerNode structInitializer)
