@@ -4,8 +4,9 @@ struct Human {
     age: i8;
 }
 
-global func main() {
-    printf("%d\n", addbyte(10, 300));
+global func main(argc: i64, argv: i64) {
+    printf("args: %d, starts at %p\n", argc, argv);
+    printf("10 + 300 = %d\n", addbyte(10, 300));
 }
 
 func addbyte(a: i32, sb: i8): i32 {

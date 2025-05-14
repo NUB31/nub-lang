@@ -184,12 +184,14 @@ public class Generator
                         return 8;
                     case PrimitiveTypeKind.I32:
                     case PrimitiveTypeKind.U32:
+                        return 4;
                     case PrimitiveTypeKind.I16:
                     case PrimitiveTypeKind.U16:
+                        return 2;
                     case PrimitiveTypeKind.I8:
                     case PrimitiveTypeKind.U8:
                     case PrimitiveTypeKind.Bool:
-                        return 4;
+                        return 1;
                     case PrimitiveTypeKind.F64:
                         return 8;
                     case PrimitiveTypeKind.F32:
