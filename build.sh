@@ -5,7 +5,7 @@ mkdir -p out
 
 echo "setup..."
 
-dotnet publish -c Release src/compiler/Nub.Lang > /dev/null
+dotnet publish -c Release src/compiler/Nub.Lang
 
 echo "compiling..."
 

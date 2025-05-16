@@ -53,8 +53,9 @@ public class Generator
                     case PrimitiveTypeKind.I64:
                     case PrimitiveTypeKind.U64:
                     case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Any:
                         return "l";
+                    case PrimitiveTypeKind.Any:
+                        throw new NotSupportedException("Cannot convert 'any' type to QBE type");
                     case PrimitiveTypeKind.I32:
                     case PrimitiveTypeKind.U32:
                     case PrimitiveTypeKind.I16:
@@ -93,8 +94,9 @@ public class Generator
                     case PrimitiveTypeKind.I64:
                     case PrimitiveTypeKind.U64:
                     case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Any:
                         return "l";
+                    case PrimitiveTypeKind.Any:
+                        throw new NotSupportedException("Cannot convert any to QBE type");
                     case PrimitiveTypeKind.I32:
                     case PrimitiveTypeKind.U32:
                         return "w";
@@ -135,8 +137,9 @@ public class Generator
                     case PrimitiveTypeKind.I64:
                     case PrimitiveTypeKind.U64:
                     case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Any:
                         return "l";
+                    case PrimitiveTypeKind.Any:
+                        throw new NotSupportedException("Cannot convert any to QBE type");
                     case PrimitiveTypeKind.I32:
                     case PrimitiveTypeKind.U32:
                         return "w";
@@ -215,15 +218,6 @@ public class Generator
     {
         _variables.Clear();
 
-        foreach (var parameter in node.Parameters)
-        {
-            _variables.Add(parameter.Name, new Variable
-            {
-                Identifier = $"%{parameter.Name}",
-                Type = parameter.Type
-            });
-        }
-
         if (node.Global)
         {
             _builder.Append("export ");
@@ -260,21 +254,33 @@ public class Generator
 
         foreach (var parameter in node.Parameters)
         {
+            var parameterName = parameter.Name;
+
             switch (FQT(parameter.Type))
             {
                 case "sb":
-                    _builder.AppendLine($"    %{parameter.Name} =w extsb %{parameter.Name}");
+                    parameterName = GenName("c");
+                    _builder.AppendLine($"    %{parameterName} =w extsb %{parameter.Name}");
                     break;
                 case "ub":
-                    _builder.AppendLine($"    %{parameter.Name} =w extub %{parameter.Name}");
+                    parameterName = GenName("c");
+                    _builder.AppendLine($"    %{parameterName} =w extub %{parameter.Name}");
                     break;
                 case "sh":
-                    _builder.AppendLine($"    %{parameter.Name} =w extsh %{parameter.Name}");
+                    parameterName = GenName("c");
+                    _builder.AppendLine($"    %{parameterName} =w extsh %{parameter.Name}");
                     break;
                 case "uh":
-                    _builder.AppendLine($"    %{parameter.Name} =w extuh %{parameter.Name}");
+                    parameterName = GenName("c");
+                    _builder.AppendLine($"    %{parameterName} =w extuh %{parameter.Name}");
                     break;
             }
+
+            _variables.Add(parameter.Name, new Variable
+            {
+                Identifier = $"%{parameterName}",
+                Type = parameter.Type
+            });
         }
 
         GenerateBlock(node.Body);
@@ -290,16 +296,6 @@ public class Generator
     {
         var fields = structDefinition.Fields.Select(f => EQT(f.Type));
         _builder.AppendLine($"type :{structDefinition.Name} = {{ {string.Join(", ", fields)} }}");
-    }
-
-    private void GenerateBlock(BlockNode block)
-    {
-        foreach (var statement in block.Statements.Where(_ => _codeIsReachable))
-        {
-            GenerateStatement(statement);
-        }
-
-        _codeIsReachable = true;
     }
 
     private void GenerateStatement(StatementNode statement)
@@ -332,6 +328,67 @@ public class Generator
         }
     }
 
+    private string GenerateFuncCall(FuncCall funcCall)
+    {
+        var parameterDefinitions = _definitions
+            .OfType<LocalFuncDefinitionNode>()
+            .FirstOrDefault(d => d.Name == funcCall.Name)
+            ?.Parameters;
+
+        parameterDefinitions ??= _definitions
+            .OfType<ExternFuncDefinitionNode>()
+            .FirstOrDefault(d => d.Name == funcCall.Name)
+            ?.Parameters;
+
+        if (parameterDefinitions == null)
+        {
+            throw new Exception($"Unknown function {funcCall}");
+        }
+
+        var parameterStrings = new List<string>();
+
+        for (var i = 0; i < funcCall.Parameters.Count; i++)
+        {
+            if (i < parameterDefinitions.Count && parameterDefinitions[i].Variadic)
+            {
+                parameterStrings.Add("...");
+            }
+
+            NubType expectedType;
+            if (i < parameterDefinitions.Count)
+            {
+                expectedType = parameterDefinitions[i].Type;
+            }
+            else if (parameterDefinitions[^1].Variadic)
+            {
+                expectedType = parameterDefinitions[^1].Type;
+            }
+            else
+            {
+                throw new Exception($"Parameters for func {funcCall} does not not match");
+            }
+
+            var parameter = funcCall.Parameters[i];
+            var parameterOutput = GenerateExpression(parameter);
+            var result = GenerateTypeConversion(parameterOutput, parameter.Type, expectedType);
+
+            var qbeParameterType = SQT(expectedType.Equals(NubPrimitiveType.Any) ? parameter.Type : expectedType);
+            parameterStrings.Add($"{qbeParameterType} {result}");
+        }
+
+        return $"call ${funcCall.Name}({string.Join(", ", parameterStrings)})";
+    }
+
+    private void GenerateBlock(BlockNode block)
+    {
+        foreach (var statement in block.Statements.Where(_ => _codeIsReachable))
+        {
+            GenerateStatement(statement);
+        }
+
+        _codeIsReachable = true;
+    }
+
     private void GenerateBreak()
     {
         _builder.AppendLine($"    jmp @{_breakLabels.Peek()}");
@@ -346,39 +403,7 @@ public class Generator
 
     private void GenerateStatementFuncCall(FuncCallStatementNode funcCall)
     {
-        var parameterDefinition = _definitions
-            .OfType<LocalFuncDefinitionNode>()
-            .FirstOrDefault(d => d.Name == funcCall.FuncCall.Name)
-            ?.Parameters;
-
-        parameterDefinition ??= _definitions
-            .OfType<ExternFuncDefinitionNode>()
-            .FirstOrDefault(d => d.Name == funcCall.FuncCall.Name)
-            ?.Parameters;
-
-        if (parameterDefinition == null)
-        {
-            throw new Exception($"Unknown function {funcCall.FuncCall}");
-        }
-
-        var results = new List<(string, NubType)>();
-        foreach (var parameter in funcCall.FuncCall.Parameters)
-        {
-            results.Add((GenerateExpression(parameter), parameter.Type));
-        }
-
-        var parameterStrings = new List<string>();
-        for (var i = 0; i < results.Count; i++)
-        {
-            if (parameterDefinition.Count > i && parameterDefinition[i].Variadic)
-            {
-                parameterStrings.Add("...");
-            }
-
-            parameterStrings.Add($"{SQT(results[i].Item2)} {results[i].Item1}");
-        }
-
-        _builder.AppendLine($"    call ${funcCall.FuncCall.Name}({string.Join(", ", parameterStrings)})");
+        _builder.AppendLine($"    {GenerateFuncCall(funcCall.FuncCall)}");
     }
 
     private void GenerateIf(IfNode ifStatement)
@@ -748,7 +773,7 @@ public class Generator
             return $"$str{_strings.Count}";
         }
 
-        if (literal.LiteralType.Equals(NubPrimitiveType.I64) || literal.LiteralType.Equals(NubPrimitiveType.I32))
+        if (literal.LiteralType.Equals(NubPrimitiveType.I64))
         {
             return literal.Literal;
         }
@@ -761,15 +786,263 @@ public class Generator
         throw new NotSupportedException($"Literal {literal.LiteralType} is not supported");
     }
 
-    private string GenerateCast(string input, NubType inputType, string output, NubType outputType)
+    private string GenerateTypeConversion(string input, NubType inputType, NubType outputType)
     {
+        if (inputType.Equals(outputType))
+        {
+            return input;
+        }
+
         if (outputType is not NubPrimitiveType primitiveOutputType || inputType is not NubPrimitiveType primitiveInputType)
         {
             throw new NotSupportedException("Casting is only supported for primitive types");
         }
 
-        // var instruction = 
-        return ""
+        if (primitiveOutputType.Kind == PrimitiveTypeKind.Any) return input;
+        if (primitiveOutputType.Kind == PrimitiveTypeKind.Bool)
+        {
+            throw new NotSupportedException("Cannot cast any type to a bool");
+        }
+
+        var outputLabel = GenName("c");
+
+        switch (primitiveInputType.Kind)
+        {
+            case PrimitiveTypeKind.I64:
+                switch (primitiveOutputType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                        return input;
+                    case PrimitiveTypeKind.F64:
+                        _builder.AppendLine($"    %{outputLabel} =d sltof {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.F32:
+                        _builder.AppendLine($"    %{outputLabel} =s sltof {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.String:
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            case PrimitiveTypeKind.I32:
+                switch (primitiveOutputType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                        _builder.AppendLine($"    %{outputLabel} =l extsw {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                        return input;
+                    case PrimitiveTypeKind.F64:
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =l extsw {input}");
+                        _builder.AppendLine($"    %{outputLabel} =d sltof {extLabel}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.F32:
+                        _builder.AppendLine($"    %{outputLabel} =s swtof {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.String:
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            case PrimitiveTypeKind.I16:
+                switch (primitiveOutputType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                        _builder.AppendLine($"    %{outputLabel} =l extsh {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                        _builder.AppendLine($"    %{outputLabel} =w extsh {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                        return input;
+                    case PrimitiveTypeKind.F64:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =l extsh {input}");
+                        _builder.AppendLine($"    %{outputLabel} =d sltof {extLabel}");
+                        return $"%{outputLabel}";
+                    }
+                    case PrimitiveTypeKind.F32:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =w extsh {input}");
+                        _builder.AppendLine($"    %{outputLabel} =s swtof {extLabel}");
+                        return $"%{outputLabel}";
+                    }
+                    case PrimitiveTypeKind.String:
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            case PrimitiveTypeKind.I8:
+                switch (primitiveOutputType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                        _builder.AppendLine($"    %{outputLabel} =l extsb {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                        _builder.AppendLine($"    %{outputLabel} =w extsb {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                        return input;
+                    case PrimitiveTypeKind.F64:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =l extsb {input}");
+                        _builder.AppendLine($"    %{outputLabel} =d sltof {extLabel}");
+                        return $"%{outputLabel}";
+                    }
+                    case PrimitiveTypeKind.F32:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =w extsb {input}");
+                        _builder.AppendLine($"    %{outputLabel} =s swtof {extLabel}");
+                        return $"%{outputLabel}";
+                    }
+                    case PrimitiveTypeKind.String:
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            case PrimitiveTypeKind.U64:
+                switch (primitiveOutputType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                        return input;
+                    case PrimitiveTypeKind.F64:
+                        _builder.AppendLine($"    %{outputLabel} =d ultof {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.F32:
+                        _builder.AppendLine($"    %{outputLabel} =s ultof {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.String:
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            case PrimitiveTypeKind.U32:
+                switch (primitiveOutputType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                        _builder.AppendLine($"    %{outputLabel} =l extuw {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                        return input;
+                    case PrimitiveTypeKind.F64:
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =l extuw {input}");
+                        _builder.AppendLine($"    %{outputLabel} =d ultof {extLabel}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.F32:
+                        _builder.AppendLine($"    %{outputLabel} =s uwtof {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.String:
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            case PrimitiveTypeKind.U16:
+                switch (primitiveOutputType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                        _builder.AppendLine($"    %{outputLabel} =l extuh {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                        _builder.AppendLine($"    %{outputLabel} =w extuh {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                        return input;
+                    case PrimitiveTypeKind.F64:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =l extuh {input}");
+                        _builder.AppendLine($"    %{outputLabel} =d ultof {extLabel}");
+                        return $"%{outputLabel}";
+                    }
+                    case PrimitiveTypeKind.F32:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =w extuh {input}");
+                        _builder.AppendLine($"    %{outputLabel} =s uwtof {extLabel}");
+                        return $"%{outputLabel}";
+                    }
+                    case PrimitiveTypeKind.String:
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            case PrimitiveTypeKind.U8:
+                switch (primitiveOutputType.Kind)
+                {
+                    case PrimitiveTypeKind.I64:
+                    case PrimitiveTypeKind.U64:
+                        _builder.AppendLine($"    %{outputLabel} =l extub {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.U32:
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.U16:
+                        _builder.AppendLine($"    %{outputLabel} =w extub {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I8:
+                    case PrimitiveTypeKind.U8:
+                        return input;
+                    case PrimitiveTypeKind.F64:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =l extub {input}");
+                        _builder.AppendLine($"    %{outputLabel} =d ultof {extLabel}");
+                        return $"%{outputLabel}";
+                    }
+                    case PrimitiveTypeKind.F32:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =w extub {input}");
+                        _builder.AppendLine($"    %{outputLabel} =s uwtof {extLabel}");
+                        return $"%{outputLabel}";
+                    }
+                    case PrimitiveTypeKind.String:
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            default:
+                throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
+        }
     }
 
     private string GenerateStructInitializer(StructInitializerNode structInitializer)
@@ -816,18 +1089,9 @@ public class Generator
 
     private string GenerateExpressionFuncCall(FuncCallExpressionNode funcCall)
     {
-        var results = new List<(string, NubType)>();
-        foreach (var parameter in funcCall.FuncCall.Parameters)
-        {
-            results.Add((GenerateExpression(parameter), parameter.Type));
-        }
-
-        var parameters = results.Select(p => $"{SQT(p.Item2)} {p.Item1}");
-
-        var output = GenName();
-        _builder.AppendLine($"    %{output} ={SQT(funcCall.Type)} call ${funcCall.FuncCall.Name}({string.Join(", ", parameters)})");
-
-        return $"%{output}";
+        var outputLabel = GenName();
+        _builder.AppendLine($"    %{outputLabel} ={SQT(funcCall.Type)} {GenerateFuncCall(funcCall.FuncCall)}");
+        return $"%{outputLabel}";
     }
 
     private string GenName(string prefix = "v")
