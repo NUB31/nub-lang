@@ -1,1 +1,0 @@
-extern func arr_size(array: Array<Any>): int64;
