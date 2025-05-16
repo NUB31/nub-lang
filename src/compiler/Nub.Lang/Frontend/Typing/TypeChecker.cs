@@ -245,7 +245,6 @@ public class TypeChecker
             case LiteralNode literal:
                 resultType = literal.LiteralType;
                 break;
-                
             case IdentifierNode identifier:
                 if (!_variables.TryGetValue(identifier.Identifier, out var varType))
                 {
@@ -253,23 +252,21 @@ public class TypeChecker
                 }
                 resultType = varType;
                 break;
-                
             case BinaryExpressionNode binaryExpr:
                 resultType = TypeCheckBinaryExpression(binaryExpr);
                 break;
-                
+            case CastNode cast:
+                resultType = TypeCheckCast(cast);
+                break;
             case FuncCallExpressionNode funcCallExpr:
                 resultType = TypeCheckFuncCall(funcCallExpr.FuncCall);
                 break;
-                
             case StructInitializerNode structInit:
                 resultType = TypeCheckStructInitializer(structInit);
                 break;
-                
             case StructFieldAccessorNode fieldAccess:
                 resultType = TypeCheckStructFieldAccess(fieldAccess);
                 break;
-                
             default:
                 throw new TypeCheckingException($"Unsupported expression type: {expression.GetType().Name}");
         }
@@ -314,6 +311,13 @@ public class TypeChecker
             default:
                 throw new TypeCheckingException($"Unsupported binary operator: {binaryExpr.Operator}");
         }
+    }
+
+    private NubType TypeCheckCast(CastNode cast)
+    {
+        TypeCheckExpression(cast.Expression);
+        // TODO: Check if castable
+        return cast.TargetType;
     }
 
     private NubType TypeCheckStructInitializer(StructInitializerNode structInit)

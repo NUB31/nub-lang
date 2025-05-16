@@ -478,6 +478,8 @@ public class Generator
         {
             case BinaryExpressionNode binaryExpression:
                 return GenerateBinaryExpression(binaryExpression);
+            case CastNode cast:
+                return GenerateCast(cast);
             case FuncCallExpressionNode funcCallExpression:
                 return GenerateExpressionFuncCall(funcCallExpression);
             case IdentifierNode identifier:
@@ -491,44 +493,6 @@ public class Generator
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
         }
-    }
-
-    private string GenerateStructFieldAccessor(StructFieldAccessorNode structFieldAccessor)
-    {
-        var structType = structFieldAccessor.Struct.Type;
-        var structDefinition = _definitions
-            .OfType<StructDefinitionNode>()
-            .FirstOrDefault(s => s.Name == structType.Name);
-
-        if (structDefinition == null)
-        {
-            throw new Exception($"Struct {structType.Name} is not defined");
-        }
-
-        var @struct = GenerateExpression(structFieldAccessor.Struct);
-
-        var fieldIndex = -1;
-        for (var i = 0; i < structDefinition.Fields.Count; i++)
-        {
-            if (structDefinition.Fields[i].Name == structFieldAccessor.Field)
-            {
-                fieldIndex = i;
-                break;
-            }
-        }
-
-        if (fieldIndex == -1)
-        {
-            throw new Exception($"Field {structFieldAccessor.Field} is not defined in struct {structType.Name}");
-        }
-
-        var offsetLabel = GenName("offset");
-        _builder.AppendLine($"    %{offsetLabel} =l add {@struct}, {fieldIndex * QbeTypeSize(structFieldAccessor.Type)}");
-
-        var outputLabel = GenName("field");
-        _builder.AppendLine($"    %{outputLabel} ={SQT(structFieldAccessor.Type)} load{SQT(structFieldAccessor.Type)} %{offsetLabel}");
-
-        return $"%{outputLabel}";
     }
 
     private string GenerateBinaryExpression(BinaryExpressionNode binaryExpression)
@@ -757,41 +721,12 @@ public class Generator
         throw new NotSupportedException($"Binary operator {binaryExpression.Operator} for types left: {binaryExpression.Left.Type}, right: {binaryExpression.Right.Type} not supported");
     }
 
-    private string GenerateIdentifier(IdentifierNode identifier)
+    private string GenerateCast(CastNode cast)
     {
-        return _variables[identifier.Identifier].Identifier;
-    }
-
-    private string GenerateLiteral(LiteralNode literal)
-    {
-        if (literal.LiteralType.Equals(NubPrimitiveType.String))
-        {
-            _strings.Add(literal.Literal);
-            return $"$str{_strings.Count}";
-        }
-
-        if (literal.LiteralType.Equals(NubPrimitiveType.I64))
-        {
-            return literal.Literal;
-        }
-
-        if (literal.LiteralType.Equals(NubPrimitiveType.F64))
-        {
-            var value = double.Parse(literal.Literal, CultureInfo.InvariantCulture);
-            var bits = BitConverter.DoubleToInt64Bits(value);
-            return bits.ToString();
-        }
-
-        if (literal.LiteralType.Equals(NubPrimitiveType.Bool))
-        {
-            return bool.Parse(literal.Literal) ? "1" : "0";
-        }
-
-        throw new NotSupportedException($"Literal {literal.LiteralType} is not supported");
-    }
-
-    private string GenerateTypeConversion(string input, NubType inputType, NubType outputType)
-    {
+        var input = GenerateExpression(cast.Expression);
+        var outputType = cast.TargetType;
+        var inputType = cast.Expression.Type;
+        
         if (inputType.Equals(outputType) || outputType.Equals(NubPrimitiveType.Any))
         {
             return input;
@@ -1107,6 +1042,39 @@ public class Generator
         }
     }
 
+    private string GenerateIdentifier(IdentifierNode identifier)
+    {
+        return _variables[identifier.Identifier].Identifier;
+    }
+
+    private string GenerateLiteral(LiteralNode literal)
+    {
+        if (literal.LiteralType.Equals(NubPrimitiveType.String))
+        {
+            _strings.Add(literal.Literal);
+            return $"$str{_strings.Count}";
+        }
+
+        if (literal.LiteralType.Equals(NubPrimitiveType.I64))
+        {
+            return literal.Literal;
+        }
+
+        if (literal.LiteralType.Equals(NubPrimitiveType.F64))
+        {
+            var value = double.Parse(literal.Literal, CultureInfo.InvariantCulture);
+            var bits = BitConverter.DoubleToInt64Bits(value);
+            return bits.ToString();
+        }
+
+        if (literal.LiteralType.Equals(NubPrimitiveType.Bool))
+        {
+            return bool.Parse(literal.Literal) ? "1" : "0";
+        }
+
+        throw new NotSupportedException($"Literal {literal.LiteralType} is not supported");
+    }
+
     private string GenerateStructInitializer(StructInitializerNode structInitializer)
     {
         var structDefinition = _definitions.OfType<StructDefinitionNode>()
@@ -1147,6 +1115,44 @@ public class Generator
         }
 
         return $"%{structVar}";
+    }
+
+    private string GenerateStructFieldAccessor(StructFieldAccessorNode structFieldAccessor)
+    {
+        var structType = structFieldAccessor.Struct.Type;
+        var structDefinition = _definitions
+            .OfType<StructDefinitionNode>()
+            .FirstOrDefault(s => s.Name == structType.Name);
+
+        if (structDefinition == null)
+        {
+            throw new Exception($"Struct {structType.Name} is not defined");
+        }
+
+        var @struct = GenerateExpression(structFieldAccessor.Struct);
+
+        var fieldIndex = -1;
+        for (var i = 0; i < structDefinition.Fields.Count; i++)
+        {
+            if (structDefinition.Fields[i].Name == structFieldAccessor.Field)
+            {
+                fieldIndex = i;
+                break;
+            }
+        }
+
+        if (fieldIndex == -1)
+        {
+            throw new Exception($"Field {structFieldAccessor.Field} is not defined in struct {structType.Name}");
+        }
+
+        var offsetLabel = GenName("offset");
+        _builder.AppendLine($"    %{offsetLabel} =l add {@struct}, {fieldIndex * QbeTypeSize(structFieldAccessor.Type)}");
+
+        var outputLabel = GenName("field");
+        _builder.AppendLine($"    %{outputLabel} ={SQT(structFieldAccessor.Type)} load{SQT(structFieldAccessor.Type)} %{offsetLabel}");
+
+        return $"%{outputLabel}";
     }
 
     private string GenerateExpressionFuncCall(FuncCallExpressionNode funcCall)
