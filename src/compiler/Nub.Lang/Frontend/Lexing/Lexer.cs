@@ -5,8 +5,6 @@ public class Lexer
     private static readonly Dictionary<string, Symbol> Keywords = new()
     { 
         ["func"] = Symbol.Func,
-        ["global"] = Symbol.Global,
-        ["extern"] = Symbol.Extern,
         ["import"] = Symbol.Import,
         ["if"] = Symbol.If,
         ["else"] = Symbol.Else,
@@ -16,6 +14,12 @@ public class Lexer
         ["return"] = Symbol.Return,
         ["new"] = Symbol.New,
         ["struct"] = Symbol.Struct,
+    };
+    
+    private static readonly Dictionary<string, Modifier> Modifers = new()
+    { 
+        ["global"] = Modifier.Global,
+        ["extern"] = Modifier.Extern,
     };
 
     private static readonly Dictionary<char[], Symbol> Chians = new()
@@ -82,6 +86,11 @@ public class Lexer
             if (Keywords.TryGetValue(buffer, out var keywordSymbol))
             {
                 return new SymbolToken(keywordSymbol);
+            }
+            
+            if (Modifers.TryGetValue(buffer, out var modifer))
+            {
+                return new ModifierToken(modifer);
             }
             
             if (buffer is "true" or "false")

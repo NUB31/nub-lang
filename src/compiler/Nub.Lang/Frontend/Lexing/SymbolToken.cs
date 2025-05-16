@@ -9,8 +9,6 @@ public enum Symbol
 {
     Whitespace,
     Import,
-    Extern,
-    Global,
     Func,
     Return,
     If,

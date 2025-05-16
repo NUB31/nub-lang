@@ -35,18 +35,23 @@ public class Parser
 
     private DefinitionNode ParseDefinition()
     {
+        List<Modifier> modifiers = [];
+        
+        while (TryExpectModifier(out var modifier))
+        {
+            modifiers.Add(modifier);
+        }
+        
         var keyword = ExpectSymbol();
         return keyword.Symbol switch
         {
-            Symbol.Func => ParseFuncDefinition(),
-            Symbol.Global => ParseGlobalFuncDefinition(),
-            Symbol.Extern => ParseExternFuncDefinition(),
-            Symbol.Struct => ParseStruct(),
+            Symbol.Func => ParseFuncDefinition(modifiers),
+            Symbol.Struct => ParseStruct(modifiers),
             _ => throw new Exception("Unexpected symbol: " + keyword.Symbol)
         };
     }
 
-    private LocalFuncDefinitionNode ParseFuncDefinition()
+    private DefinitionNode ParseFuncDefinition(List<Modifier> modifiers)
     {
         var name = ExpectIdentifier();
         List<FuncParameter> parameters = [];
@@ -66,64 +71,27 @@ public class Parser
             returnType = ParseType();
         }
 
+        if (modifiers.Remove(Modifier.Extern))
+        {
+            if (modifiers.Count != 0)
+            {
+                throw new Exception($"Modifiers: {string.Join(", ", modifiers)} is not valid for an extern function");
+            }
+            ExpectSymbol(Symbol.Semicolon);
+            return new ExternFuncDefinitionNode(name.Value, parameters, returnType);
+        }
+        
         var body = ParseBlock();
-
-        return new LocalFuncDefinitionNode(name.Value, parameters, body, returnType, false);
+        var global = modifiers.Remove(Modifier.Global);
+        
+        if (modifiers.Count != 0)
+        {
+            throw new Exception($"Modifiers: {string.Join(", ", modifiers)} is not valid for a local function");
+        }
+        return new LocalFuncDefinitionNode(name.Value, parameters, body, returnType, global);
     }
 
-    private LocalFuncDefinitionNode ParseGlobalFuncDefinition()
-    {
-        ExpectSymbol(Symbol.Func);
-        var name = ExpectIdentifier();
-        List<FuncParameter> parameters = [];
-        ExpectSymbol(Symbol.OpenParen);
-        if (!TryExpectSymbol(Symbol.CloseParen))
-        {
-            while (!TryExpectSymbol(Symbol.CloseParen))
-            {
-                parameters.Add(ParseFuncParameter());
-                TryExpectSymbol(Symbol.Comma);
-            }
-        }
-
-        var returnType = Optional<NubType>.Empty();
-        if (TryExpectSymbol(Symbol.Colon))
-        {
-            returnType = ParseType();
-        }
-
-        var body = ParseBlock();
-
-        return new LocalFuncDefinitionNode(name.Value, parameters, body, returnType, true);
-    }
-
-    private ExternFuncDefinitionNode ParseExternFuncDefinition()
-    {
-        ExpectSymbol(Symbol.Func);
-        var name = ExpectIdentifier();
-        List<FuncParameter> parameters = [];
-        ExpectSymbol(Symbol.OpenParen);
-        if (!TryExpectSymbol(Symbol.CloseParen))
-        {
-            while (!TryExpectSymbol(Symbol.CloseParen))
-            {
-                parameters.Add(ParseFuncParameter());
-                TryExpectSymbol(Symbol.Comma);
-            }
-        }
-
-        var returnType = Optional<NubType>.Empty();
-        if (TryExpectSymbol(Symbol.Colon))
-        {
-            returnType = ParseType();
-        }
-
-        ExpectSymbol(Symbol.Semicolon);
-
-        return new ExternFuncDefinitionNode(name.Value, parameters, returnType);
-    }
-
-    private StructDefinitionNode ParseStruct()
+    private StructDefinitionNode ParseStruct(List<Modifier> modifiers)
     {
         var name = ExpectIdentifier().Value;
 
@@ -501,6 +469,19 @@ public class Parser
         var result = Peek() is { HasValue: true, Value: SymbolToken symbolToken } && symbolToken.Symbol == symbol;
         if (result) Next();
         return result;
+    }
+
+    private bool TryExpectModifier(out Modifier modifier)
+    {
+        if (Peek() is { HasValue: true, Value: ModifierToken modifierToken })
+        {
+            modifier = modifierToken.Modifier;
+            Next();
+            return true;
+        }
+        
+        modifier = default;
+        return false;
     }
 
     private IdentifierToken ExpectIdentifier()
