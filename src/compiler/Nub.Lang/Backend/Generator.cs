@@ -229,7 +229,7 @@ public class Generator
         {
             _builder.Append($"{FQT(node.ReturnType.Value)} ");
         }
-        else
+        else if (!node.ReturnType.HasValue && node.Name == "main")
         {
             _builder.Append("l ");
         }
@@ -237,18 +237,7 @@ public class Generator
         _builder.Append('$');
         _builder.Append(node.Name);
 
-        var parameterStrings = new List<string>();
-        foreach (var parameter in node.Parameters)
-        {
-            if (parameter.Variadic)
-            {
-                parameterStrings.Add("...");
-            }
-            else
-            {
-                parameterStrings.Add($"{FQT(parameter.Type)} %{parameter.Name}");
-            }
-        }
+        var parameterStrings = node.Parameters.Select(parameter => parameter.Variadic ? "..." : $"{FQT(parameter.Type)} %{parameter.Name}");
 
         _builder.AppendLine($"({string.Join(", ", parameterStrings)}) {{");
         _builder.AppendLine("@start");
@@ -285,9 +274,17 @@ public class Generator
         }
 
         GenerateBlock(node.Body);
-        if (!node.ReturnType.HasValue)
+
+        if (node.Body.Statements.Last() is not ReturnNode)
         {
-            _builder.AppendLine("    ret 0");
+            if (!node.ReturnType.HasValue && node.Name == "main")
+            {
+                _builder.AppendLine("    ret 0");
+            }
+            else if (!node.ReturnType.HasValue)
+            {
+                _builder.AppendLine("    ret");
+            }
         }
 
         _builder.AppendLine("}");
@@ -758,8 +755,7 @@ public class Generator
             }
         }
 
-        throw new NotSupportedException(
-            $"Binary operator {binaryExpression.Operator} for types left: {binaryExpression.Left.Type}, right: {binaryExpression.Right.Type} not supported");
+        throw new NotSupportedException($"Binary operator {binaryExpression.Operator} for types left: {binaryExpression.Left.Type}, right: {binaryExpression.Right.Type} not supported");
     }
 
     private string GenerateIdentifier(IdentifierNode identifier)

@@ -21,7 +21,6 @@ public class Parser
             if (TryExpectSymbol(Symbol.Import))
             {
                 var name = ExpectIdentifier();
-                TryExpectSymbol(Symbol.Semicolon);
                 imports.Add(name.Value);
             }
             else
@@ -77,7 +76,6 @@ public class Parser
             {
                 throw new Exception($"Modifiers: {string.Join(", ", modifiers)} is not valid for an extern function");
             }
-            ExpectSymbol(Symbol.Semicolon);
             return new ExternFuncDefinitionNode(name.Value, parameters, returnType);
         }
         
@@ -111,8 +109,6 @@ public class Parser
             {
                 variableValue = ParseExpression();
             }
-
-            ExpectSymbol(Symbol.Semicolon);
 
             variables.Add(new StructField(variableName, variableType, variableValue));
         }
@@ -156,14 +152,11 @@ public class Parser
                             TryExpectSymbol(Symbol.Comma);
                         }
 
-                        ExpectSymbol(Symbol.Semicolon);
-
                         return new FuncCallStatementNode(new FuncCall(identifier.Value, parameters));
                     }
                     case Symbol.Assign:
                     {
                         var value = ParseExpression();
-                        ExpectSymbol(Symbol.Semicolon);
                         return new VariableAssignmentNode(identifier.Value, value);
                     }
                     default:
@@ -179,8 +172,8 @@ public class Parser
                     Symbol.Return => ParseReturn(),
                     Symbol.If => ParseIf(),
                     Symbol.While => ParseWhile(),
-                    Symbol.Break => ParseBreak(),
-                    Symbol.Continue => ParseContinue(),
+                    Symbol.Break => new BreakNode(),
+                    Symbol.Continue => new ContinueNode(),
                     _ => throw new Exception($"Unexpected symbol {symbol.Symbol}")
                 };
             }
@@ -197,7 +190,6 @@ public class Parser
         if (!TryExpectSymbol(Symbol.Semicolon))
         {
             value = ParseExpression();
-            ExpectSymbol(Symbol.Semicolon);
         }
 
         return new ReturnNode(value);
@@ -224,18 +216,6 @@ public class Parser
         var condition = ParseExpression();
         var body = ParseBlock();
         return new WhileNode(condition, body);
-    }
-
-    private BreakNode ParseBreak()
-    {
-        ExpectSymbol(Symbol.Semicolon);
-        return new BreakNode();
-    }
-
-    private ContinueNode ParseContinue()
-    {
-        ExpectSymbol(Symbol.Semicolon);
-        return new ContinueNode();
     }
 
     private ExpressionNode ParseExpression(int precedence = 0)
@@ -349,7 +329,6 @@ public class Parser
                             var name = ExpectIdentifier().Value;
                             ExpectSymbol(Symbol.Assign);
                             var value = ParseExpression();
-                            TryExpectSymbol(Symbol.Semicolon);
                             initializers.Add(name, value);
                         }
 

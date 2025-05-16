@@ -1,2 +1,2 @@
-extern func puts(str: string);
-extern func printf(fmt: string, ...args: any);
+extern func puts(str: string)
+extern func printf(fmt: string, ...args: any)
