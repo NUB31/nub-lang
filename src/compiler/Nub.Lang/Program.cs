@@ -44,8 +44,8 @@ internal static class Program
         var modules = RunFrontend(input);
         var definitions = modules.SelectMany(f => f.Definitions).ToList();
 
-        var typer = new ExpressionTyper(definitions);
-        typer.Populate();
+        var typeChecker = new TypeChecker();
+        typeChecker.TypeCheck(definitions);
 
         var generator = new Generator(definitions);
         var result = generator.Generate();
