@@ -376,8 +376,6 @@ public class TypeChecker
         return fieldType;
     }
 
-    #region Type Helper Methods
-
     private static bool AreTypesCompatible(NubType sourceType, NubType targetType)
     {
         return targetType.Equals(NubPrimitiveType.Any) || sourceType.Equals(targetType);
@@ -407,6 +405,4 @@ public class TypeChecker
                 return false;
         }
     }
-
-    #endregion
 }
