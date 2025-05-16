@@ -14,6 +14,7 @@ public class Generator
     private readonly Stack<string> _breakLabels = new();
     private readonly Stack<string> _continueLabels = new();
     private bool _codeIsReachable = true;
+    private LocalFuncDefinitionNode? _currentFuncDefininition;
 
     public Generator(List<DefinitionNode> definitions)
     {
@@ -217,6 +218,7 @@ public class Generator
 
     private void GenerateFuncDefinition(LocalFuncDefinitionNode node)
     {
+        _currentFuncDefininition = node;
         _variables.Clear();
 
         if (node.Global)
@@ -288,6 +290,7 @@ public class Generator
         }
 
         _builder.AppendLine("}");
+        _currentFuncDefininition = null;
     }
 
     private void GenerateStructDefinition(StructDefinitionNode structDefinition)
@@ -433,8 +436,14 @@ public class Generator
     {
         if (@return.Value.HasValue)
         {
+            if (!_currentFuncDefininition!.ReturnType.HasValue)
+            {
+                throw new Exception("Cannot return a value when function does not have a return value");
+            }
+            
             var result = GenerateExpression(@return.Value.Value);
-            _builder.AppendLine($"    ret {result}");
+            var converted = GenerateTypeConversion(result, @return.Value.Value.Type, _currentFuncDefininition.ReturnType.Value);
+            _builder.AppendLine($"    ret {converted}");
         }
         else
         {
@@ -445,10 +454,17 @@ public class Generator
     private void GenerateVariableAssignment(VariableAssignmentNode variableAssignment)
     {
         var result = GenerateExpression(variableAssignment.Value);
+        var variableType = variableAssignment.Value.Type;
+        
+        if (variableAssignment.ExplicitType.HasValue)
+        {
+            result = GenerateTypeConversion(result, variableType, variableAssignment.ExplicitType.Value);
+            variableType = variableAssignment.ExplicitType.Value;
+        }
         _variables[variableAssignment.Name] = new Variable
         {
             Identifier = result,
-            Type = variableAssignment.Value.Type
+            Type = variableType
         };
     }
 

@@ -143,7 +143,7 @@ public class ExpressionTyper
     private void PopulateVariableAssignment(VariableAssignmentNode variableAssignment)
     {
         PopulateExpression(variableAssignment.Value);
-        _variables.Push(new Variable(variableAssignment.Name, variableAssignment.Value.Type));
+        _variables.Push(new Variable(variableAssignment.Name, variableAssignment.ExplicitType.HasValue ? variableAssignment.ExplicitType.Value : variableAssignment.Value.Type));
     }
 
     private void PopulateVariableReassignment(VariableAssignmentNode variableAssignment)

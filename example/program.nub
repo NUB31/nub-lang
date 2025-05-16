@@ -2,10 +2,7 @@ import c
 
 global func main(argc: i64, argv: i64) {
     printf("args: %d, starts at %p\n", argc, argv)
-    test(12.1)
-    return 23
-}
 
-func test(a: f64) {
-    printf("%f\n", a)
+    x: i8 = 320000
+    printf("%d\n", x)
 }

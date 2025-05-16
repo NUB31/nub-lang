@@ -157,7 +157,14 @@ public class Parser
                     case Symbol.Assign:
                     {
                         var value = ParseExpression();
-                        return new VariableAssignmentNode(identifier.Value, value);
+                        return new VariableAssignmentNode(identifier.Value,  Optional<NubType>.Empty(),  value);
+                    }
+                    case Symbol.Colon:
+                    {
+                        var type = ParseType();
+                        ExpectSymbol(Symbol.Assign);
+                        var value = ParseExpression();
+                        return new VariableAssignmentNode(identifier.Value,type,  value);
                     }
                     default:
                     {
