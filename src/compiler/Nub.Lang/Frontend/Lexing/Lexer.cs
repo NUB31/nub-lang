@@ -94,16 +94,41 @@ public class Lexer
 
         if (char.IsDigit(current.Value))
         {
+            var isFloat = false;
             var buffer = string.Empty;
                 
-            while (current.HasValue && char.IsDigit(current.Value))
+            while (current.HasValue)
             {
-                buffer += current.Value;
-                Next();
+                if (current.Value == '.')
+                {
+                    if (isFloat)
+                    {
+                        throw new Exception("More than one period found in float literal");
+                    }
+                    isFloat = true;
+                    buffer += current.Value;
+                    Next();
                 current = Peek();
+                } 
+                else if (char.IsDigit(current.Value))
+                {
+                    buffer += current.Value;
+                    Next();
+                    current = Peek();
+                }
+                else if (current.Value == 'f')
+                {
+                    isFloat = true;
+                    Next();
+                    break;
+                }
+                else
+                {
+                    break;
+                }
             }
-
-            return new LiteralToken(NubPrimitiveType.I64, buffer);
+            
+            return new LiteralToken(isFloat ? NubPrimitiveType.F64 : NubPrimitiveType.I64, buffer);
         }
 
         // TODO: Revisit this
