@@ -54,9 +54,8 @@ public class Generator
                     case PrimitiveTypeKind.I64:
                     case PrimitiveTypeKind.U64:
                     case PrimitiveTypeKind.String:
-                        return "l";
                     case PrimitiveTypeKind.Any:
-                        throw new NotSupportedException("Cannot convert 'any' type to QBE type");
+                        return "l";
                     case PrimitiveTypeKind.I32:
                     case PrimitiveTypeKind.U32:
                     case PrimitiveTypeKind.I16:
@@ -97,7 +96,6 @@ public class Generator
                     case PrimitiveTypeKind.String:
                         return "l";
                     case PrimitiveTypeKind.Any:
-                        throw new NotSupportedException("Cannot convert 'any' type to QBE type");
                     case PrimitiveTypeKind.I32:
                     case PrimitiveTypeKind.U32:
                         return "w";
@@ -138,9 +136,8 @@ public class Generator
                     case PrimitiveTypeKind.I64:
                     case PrimitiveTypeKind.U64:
                     case PrimitiveTypeKind.String:
-                        return "l";
                     case PrimitiveTypeKind.Any:
-                        throw new NotSupportedException("Cannot convert 'any' type to QBE type");
+                        return "l";
                     case PrimitiveTypeKind.I32:
                     case PrimitiveTypeKind.U32:
                         return "w";
@@ -718,7 +715,7 @@ public class Generator
             }
         }
 
-        throw new NotSupportedException($"Binary operator {binaryExpression.Operator} for types left: {binaryExpression.Left.Type}, right: {binaryExpression.Right.Type} not supported");
+        throw new NotSupportedException($"Binary operator {binaryExpression.Operator} for types {binaryExpression.Left.Type} and {binaryExpression.Right.Type} not supported");
     }
 
     private string GenerateCast(CastNode cast)
@@ -726,8 +723,8 @@ public class Generator
         var input = GenerateExpression(cast.Expression);
         var outputType = cast.TargetType;
         var inputType = cast.Expression.Type;
-        
-        if (inputType.Equals(outputType) || outputType.Equals(NubPrimitiveType.Any))
+
+        if (inputType.Equals(outputType))
         {
             return input;
         }
@@ -761,6 +758,8 @@ public class Generator
                         _builder.AppendLine($"    %{outputLabel} =s sltof {input}");
                         return $"%{outputLabel}";
                     case PrimitiveTypeKind.String:
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_i64_to_string(l {input})");
+                        return $"%{outputLabel}";
                     case PrimitiveTypeKind.Bool:
                     default:
                         throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
@@ -782,14 +781,19 @@ public class Generator
                     case PrimitiveTypeKind.F64:
                         var extLabel = GenName("ext");
                         _builder.AppendLine($"    %{extLabel} =l extsw {input}");
-                        _builder.AppendLine($"    %{outputLabel} =d sltof {extLabel}");
+                        _builder.AppendLine($"    %{outputLabel} =d sltof %{extLabel}");
                         return $"%{outputLabel}";
                     case PrimitiveTypeKind.F32:
                         _builder.AppendLine($"    %{outputLabel} =s swtof {input}");
                         return $"%{outputLabel}";
                     case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Bool:
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_i32_to_string(w {input})");
+                        return $"%{outputLabel}";
                     case PrimitiveTypeKind.Any:
+                        var extAnyLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extAnyLabel} =l extsw {input}");
+                        return $"%{extAnyLabel}";
+                    case PrimitiveTypeKind.Bool:
                     default:
                         throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
                 }
@@ -813,19 +817,30 @@ public class Generator
                     {
                         var extLabel = GenName("ext");
                         _builder.AppendLine($"    %{extLabel} =l extsh {input}");
-                        _builder.AppendLine($"    %{outputLabel} =d sltof {extLabel}");
+                        _builder.AppendLine($"    %{outputLabel} =d sltof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.F32:
                     {
                         var extLabel = GenName("ext");
                         _builder.AppendLine($"    %{extLabel} =w extsh {input}");
-                        _builder.AppendLine($"    %{outputLabel} =s swtof {extLabel}");
+                        _builder.AppendLine($"    %{outputLabel} =s swtof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Bool:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =w extsh {input}");
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_i32_to_string(w %{extLabel})");
+                        return $"%{outputLabel}";
+                    }
                     case PrimitiveTypeKind.Any:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =l extsh {input}");
+                        return $"%{extLabel}";
+                    }
+                    case PrimitiveTypeKind.Bool:
                     default:
                         throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
                 }
@@ -849,19 +864,30 @@ public class Generator
                     {
                         var extLabel = GenName("ext");
                         _builder.AppendLine($"    %{extLabel} =l extsb {input}");
-                        _builder.AppendLine($"    %{outputLabel} =d sltof {extLabel}");
+                        _builder.AppendLine($"    %{outputLabel} =d sltof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.F32:
                     {
                         var extLabel = GenName("ext");
                         _builder.AppendLine($"    %{extLabel} =w extsb {input}");
-                        _builder.AppendLine($"    %{outputLabel} =s swtof {extLabel}");
+                        _builder.AppendLine($"    %{outputLabel} =s swtof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Bool:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =w extsb {input}");
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_i32_to_string(w %{extLabel})");
+                        return $"%{outputLabel}";
+                    }
                     case PrimitiveTypeKind.Any:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =l extsb {input}");
+                        return $"%{extLabel}";
+                    }
+                    case PrimitiveTypeKind.Bool:
                     default:
                         throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
                 }
@@ -884,8 +910,11 @@ public class Generator
                         _builder.AppendLine($"    %{outputLabel} =s ultof {input}");
                         return $"%{outputLabel}";
                     case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Bool:
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_u64_to_string(l {input})");
+                        return $"%{outputLabel}";
                     case PrimitiveTypeKind.Any:
+                        return input;
+                    case PrimitiveTypeKind.Bool:
                     default:
                         throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
                 }
@@ -906,14 +935,19 @@ public class Generator
                     case PrimitiveTypeKind.F64:
                         var extLabel = GenName("ext");
                         _builder.AppendLine($"    %{extLabel} =l extuw {input}");
-                        _builder.AppendLine($"    %{outputLabel} =d ultof {extLabel}");
+                        _builder.AppendLine($"    %{outputLabel} =d ultof %{extLabel}");
                         return $"%{outputLabel}";
                     case PrimitiveTypeKind.F32:
                         _builder.AppendLine($"    %{outputLabel} =s uwtof {input}");
                         return $"%{outputLabel}";
                     case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Bool:
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_u32_to_string(w {input})");
+                        return $"%{outputLabel}";
                     case PrimitiveTypeKind.Any:
+                        var extAnyLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extAnyLabel} =l extuw {input}");
+                        return $"%{extAnyLabel}";
+                    case PrimitiveTypeKind.Bool:
                     default:
                         throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
                 }
@@ -937,19 +971,30 @@ public class Generator
                     {
                         var extLabel = GenName("ext");
                         _builder.AppendLine($"    %{extLabel} =l extuh {input}");
-                        _builder.AppendLine($"    %{outputLabel} =d ultof {extLabel}");
+                        _builder.AppendLine($"    %{outputLabel} =d ultof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.F32:
                     {
                         var extLabel = GenName("ext");
                         _builder.AppendLine($"    %{extLabel} =w extuh {input}");
-                        _builder.AppendLine($"    %{outputLabel} =s uwtof {extLabel}");
+                        _builder.AppendLine($"    %{outputLabel} =s uwtof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Bool:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =w extuh {input}");
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_u32_to_string(w %{extLabel})");
+                        return $"%{outputLabel}";
+                    }
                     case PrimitiveTypeKind.Any:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =l extuh {input}");
+                        return $"%{extLabel}";
+                    }
+                    case PrimitiveTypeKind.Bool:
                     default:
                         throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
                 }
@@ -973,19 +1018,30 @@ public class Generator
                     {
                         var extLabel = GenName("ext");
                         _builder.AppendLine($"    %{extLabel} =l extub {input}");
-                        _builder.AppendLine($"    %{outputLabel} =d ultof {extLabel}");
+                        _builder.AppendLine($"    %{outputLabel} =d ultof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.F32:
                     {
                         var extLabel = GenName("ext");
                         _builder.AppendLine($"    %{extLabel} =w extub {input}");
-                        _builder.AppendLine($"    %{outputLabel} =s uwtof {extLabel}");
+                        _builder.AppendLine($"    %{outputLabel} =s uwtof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Bool:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =w extub {input}");
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_u32_to_string(w %{extLabel})");
+                        return $"%{outputLabel}";
+                    }
                     case PrimitiveTypeKind.Any:
+                    {
+                        var extLabel = GenName("ext");
+                        _builder.AppendLine($"    %{extLabel} =l extub {input}");
+                        return $"%{extLabel}";
+                    }
+                    case PrimitiveTypeKind.Bool:
                     default:
                         throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
                 }
@@ -993,11 +1049,79 @@ public class Generator
                 switch (primitiveOutputType.Kind)
                 {
                     case PrimitiveTypeKind.F64:
+                    case PrimitiveTypeKind.Any:
                         return input;
                     case PrimitiveTypeKind.F32:
                         _builder.AppendLine($"    %{outputLabel} =s dtos {input}");
                         return $"%{outputLabel}";
                     case PrimitiveTypeKind.I64:
+                        _builder.AppendLine($"    %{outputLabel} =l dtosi {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.I8:
+                        _builder.AppendLine($"    %{outputLabel} =w dtosi {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.U64:
+                        _builder.AppendLine($"    %{outputLabel} =l dtoui {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.U32:
+                    case PrimitiveTypeKind.U16:
+                    case PrimitiveTypeKind.U8:
+                        _builder.AppendLine($"    %{outputLabel} =w dtoui {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.String:
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_f64_to_string(d {input})");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.Bool:
+                    default:
+                        throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
+                }
+            case PrimitiveTypeKind.F32:
+                switch (primitiveOutputType.Kind)
+                {
+                    case PrimitiveTypeKind.F64:
+                        _builder.AppendLine($"    %{outputLabel} =d stod {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.F32:
+                        return input;
+                    case PrimitiveTypeKind.I64:
+                        _builder.AppendLine($"    %{outputLabel} =l stosi {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I32:
+                    case PrimitiveTypeKind.I16:
+                    case PrimitiveTypeKind.I8:
+                        _builder.AppendLine($"    %{outputLabel} =w stosi {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.U64:
+                        _builder.AppendLine($"    %{outputLabel} =l stoui {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.U32:
+                    case PrimitiveTypeKind.U16:
+                    case PrimitiveTypeKind.U8:
+                        _builder.AppendLine($"    %{outputLabel} =w stoui {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.String:
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_f32_to_string(s {input})");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.Any:
+                        throw new NotImplementedException();
+                    case PrimitiveTypeKind.Bool:
+                    default:
+                        throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
+                }
+            case PrimitiveTypeKind.Bool:
+                switch (primitiveOutputType.Kind)
+                {
+                    case PrimitiveTypeKind.Bool:
+                        return input;
+                    case PrimitiveTypeKind.Any:
+                        _builder.AppendLine($"    %{outputLabel} =l extsw {input}");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.String:
+                        _builder.AppendLine($"    %{outputLabel} =l call $nub_bool_to_string(s {input})");
+                        return $"%{outputLabel}";
+                    case PrimitiveTypeKind.I64:
                     case PrimitiveTypeKind.I32:
                     case PrimitiveTypeKind.I16:
                     case PrimitiveTypeKind.I8:
@@ -1005,20 +1129,16 @@ public class Generator
                     case PrimitiveTypeKind.U32:
                     case PrimitiveTypeKind.U16:
                     case PrimitiveTypeKind.U8:
-                    case PrimitiveTypeKind.Bool:
-                    case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Any:
+                    case PrimitiveTypeKind.F64:
+                    case PrimitiveTypeKind.F32:
                     default:
                         throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
                 }
-
-            case PrimitiveTypeKind.F32:
+            case PrimitiveTypeKind.String:
                 switch (primitiveOutputType.Kind)
                 {
-                    case PrimitiveTypeKind.F64:
-                        _builder.AppendLine($"    %{outputLabel} =d stord {input}");
-                        return $"%{outputLabel}";
-                    case PrimitiveTypeKind.F32:
+                    case PrimitiveTypeKind.String:
+                    case PrimitiveTypeKind.Any:
                         return input;
                     case PrimitiveTypeKind.I64:
                     case PrimitiveTypeKind.I32:
@@ -1028,15 +1148,14 @@ public class Generator
                     case PrimitiveTypeKind.U32:
                     case PrimitiveTypeKind.U16:
                     case PrimitiveTypeKind.U8:
+                    case PrimitiveTypeKind.F64:
+                    case PrimitiveTypeKind.F32:
                     case PrimitiveTypeKind.Bool:
-                    case PrimitiveTypeKind.String:
-                    case PrimitiveTypeKind.Any:
                     default:
                         throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
                 }
-            case PrimitiveTypeKind.Bool:
-            case PrimitiveTypeKind.String:
             case PrimitiveTypeKind.Any:
+                return input;
             default:
                 throw new NotSupportedException($"Casting from {primitiveInputType.Kind} to {primitiveOutputType.Kind} is not supported");
         }
