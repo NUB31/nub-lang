@@ -1,6 +1,15 @@
 import c
 
+struct Test {
+    text: ^string
+}
+
 global func main(argc: i64, argv: i64) {
-    x = "TEST"
-    printf("%s\n", ^&x)
+    text = "test"
+    
+    x = new Test {
+        text = &text
+    }
+
+    printf("%s\n", x.text^)
 }

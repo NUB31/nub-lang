@@ -220,6 +220,10 @@ public class Generator
 
                 return definition.Fields.Sum(f => QbeTypeSize(f.Type));
             }
+            case NubPointerType:
+            {
+                return 8;
+            }
             default:
             {
                 throw new NotImplementedException();
@@ -254,6 +258,8 @@ public class Generator
         _builder.AppendLine($"({string.Join(", ", parameterStrings)}) {{");
         _builder.AppendLine("@start");
 
+        _builder.AppendLine("    # Variable allocation");
+ 
         foreach (var parameter in node.Parameters)
         {
             var parameterName = parameter.Name;
@@ -278,12 +284,20 @@ public class Generator
                     break;
             }
 
-            _variables.Add(parameter.Name, new Variable
+            var pointerLabel = GenName();
+            _builder.AppendLine($"    %{pointerLabel} ={SQT(parameter.Type)} alloc8 {QbeTypeSize(parameter.Type)}");
+            _builder.AppendLine($"    storel %{parameterName}, %{pointerLabel}");
+            
+            
+            _variables[parameter.Name] = new Variable
             {
-                Identifier = $"%{parameterName}",
+                Pointer = $"%{pointerLabel}",
                 Type = parameter.Type
-            });
+            };
         }
+
+        _builder.AppendLine("    # End variable allocation");
+        _builder.AppendLine();
 
         GenerateBlock(node.Body);
 
@@ -291,10 +305,14 @@ public class Generator
         {
             if (!node.ReturnType.HasValue && node.Name == "main")
             {
+                _builder.AppendLine();
+                _builder.AppendLine("    # Implicit return for main");
                 _builder.AppendLine("    ret 0");
             }
             else if (!node.ReturnType.HasValue)
             {
+                _builder.AppendLine();
+                _builder.AppendLine("    # Implicit return");
                 _builder.AppendLine("    ret");
             }
         }
@@ -456,9 +474,13 @@ public class Generator
     private void GenerateVariableAssignment(VariableAssignmentNode variableAssignment)
     {
         var result = GenerateExpression(variableAssignment.Value);
+        var pointerLabel = GenName();
+        _builder.AppendLine($"    %{pointerLabel} ={SQT(variableAssignment.Value.Type)} alloc8 {QbeTypeSize(variableAssignment.Value.Type)}");
+        _builder.AppendLine($"    storel {result}, %{pointerLabel}");
+
         _variables[variableAssignment.Name] = new Variable
         {
-            Identifier = result,
+            Pointer = $"%{pointerLabel}",
             Type = variableAssignment.Value.Type
         };
     }
@@ -1180,7 +1202,10 @@ public class Generator
 
     private string GenerateIdentifier(IdentifierNode identifier)
     {
-        return _variables[identifier.Identifier].Identifier;
+        var variable = _variables[identifier.Identifier];
+        var outputLabel = GenName();
+        _builder.AppendLine($"    %{outputLabel} ={SQT(identifier.Type)} load{SQT(identifier.Type)} {variable.Pointer}");
+        return $"%{outputLabel}";
     }
 
     private string GenerateLiteral(LiteralNode literal)
@@ -1317,23 +1342,8 @@ public class Generator
             }
             case UnaryExpressionOperator.Dereference:
             {
-                // Handle dereference operator (assuming operand is a pointer)
-                // This would load the value from the address stored in the operand
-                if (unaryExpression.Type is NubPrimitiveType primitiveType)
-                {
-                    _builder.AppendLine($"    %{outputLabel} ={SQT(primitiveType)} load{SQT(primitiveType)} {operand}");
-                    return $"%{outputLabel}";
-                }
-
-                if (unaryExpression.Type is NubStructType structType)
-                {
-                    // For struct types, we'd need to handle differently
-                    // This is a simplified version
-                    _builder.AppendLine($"    %{outputLabel} =l copy {operand}");
-                    return $"%{outputLabel}";
-                }
-
-                break;
+                _builder.AppendLine($"    %{outputLabel} ={SQT(unaryExpression.Type)} load{SQT(unaryExpression.Type)} {operand}");
+                return $"%{outputLabel}";
             }
             default:
             {
@@ -1397,7 +1407,7 @@ public class Generator
 
     private class Variable
     {
-        public required string Identifier { get; init; }
+        public required string Pointer { get; init; }
         public required NubType Type { get; init; }
     }
 }

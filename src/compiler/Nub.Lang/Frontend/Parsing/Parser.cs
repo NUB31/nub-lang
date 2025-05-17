@@ -359,11 +359,6 @@ public class Parser
 
                         return new StructInitializerNode(type, initializers);
                     }
-                    case Symbol.Caret:
-                    {
-                        var expression = ParsePrimaryExpression();
-                        return new UnaryExpressionNode(UnaryExpressionOperator.Dereference, expression);
-                    }
                     case Symbol.Ampersand:
                     {
                         var expression = ParsePrimaryExpression();
@@ -413,6 +408,10 @@ public class Parser
                         {
                             var field = ExpectIdentifier();
                             result = new StructFieldAccessorNode(result, field.Value);
+                            if (TryExpectSymbol(Symbol.Caret))
+                            {
+                                result = new UnaryExpressionNode(UnaryExpressionOperator.Dereference, result);
+                            }
                         } while (TryExpectSymbol(Symbol.Period));
 
                         return result;
@@ -435,6 +434,11 @@ public class Parser
             }
         }
 
+        if (TryExpectSymbol(Symbol.Caret))
+        {
+            return new UnaryExpressionNode(UnaryExpressionOperator.Dereference, new IdentifierNode(identifier.Value));
+        }
+
         return new IdentifierNode(identifier.Value);
     }
 
@@ -452,8 +456,10 @@ public class Parser
 
     private NubType ParseType()
     {
+        var pointer = TryExpectSymbol(Symbol.Caret);
         var name = ExpectIdentifier().Value;
-        return NubType.Parse(name);
+        var type = NubType.Parse(name);
+        return pointer ? new NubPointerType(type) : type;
     }
 
     private Token ExpectToken()
