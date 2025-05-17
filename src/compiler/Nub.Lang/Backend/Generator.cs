@@ -508,26 +508,56 @@ public class Generator
 
     private string GenerateExpression(ExpressionNode expression)
     {
-        switch (expression)
+        return expression switch
         {
-            case BinaryExpressionNode binaryExpression:
-                return GenerateBinaryExpression(binaryExpression);
-            case CastNode cast:
-                return GenerateCast(cast);
-            case FuncCallExpressionNode funcCallExpression:
-                return GenerateExpressionFuncCall(funcCallExpression);
-            case IdentifierNode identifier:
-                return GenerateIdentifier(identifier);
-            case LiteralNode literal:
-                return GenerateLiteral(literal);
-            case StructInitializerNode structInitializer:
-                return GenerateStructInitializer(structInitializer);
-            case UnaryExpressionNode unaryExpression:
-                return GenerateUnaryExpression(unaryExpression);
-            case StructFieldAccessorNode structMemberAccessor:
-                return GenerateStructFieldAccessor(structMemberAccessor);
+            AddressOfNode addressOf => GenerateAddressOf(addressOf),
+            BinaryExpressionNode binaryExpression => GenerateBinaryExpression(binaryExpression),
+            CastNode cast => GenerateCast(cast),
+            DereferenceNode dereference => GenerateDereference(dereference),
+            FuncCallExpressionNode funcCallExpression => GenerateExpressionFuncCall(funcCallExpression),
+            IdentifierNode identifier => GenerateIdentifier(identifier),
+            LiteralNode literal => GenerateLiteral(literal),
+            StructInitializerNode structInitializer => GenerateStructInitializer(structInitializer),
+            UnaryExpressionNode unaryExpression => GenerateUnaryExpression(unaryExpression),
+            StructFieldAccessorNode structMemberAccessor => GenerateStructFieldAccessor(structMemberAccessor),
+            _ => throw new ArgumentOutOfRangeException(nameof(expression))
+        };
+    }
+
+    private string GenerateDereference(DereferenceNode dereference)
+    {
+        var result = GenerateExpression(dereference.Expression);
+        var outputLabel = GenName();
+        _builder.AppendLine($"    %{outputLabel} ={SQT(dereference.Type)} load{SQT(dereference.Type)} {result}");
+        return $"%{outputLabel}";
+    }
+
+    private string GenerateAddressOf(AddressOfNode addressOf)
+    {
+        var result = GenerateExpression(addressOf.Expression);
+        var outputLabel = GenName();
+        switch (addressOf.Expression.Type)
+        {
+            case NubPointerType:
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.String }:
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.I64 }:
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.F64 }:
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.U64 }:
+                _builder.AppendLine($"    %{outputLabel} =l alloc8 8");
+                _builder.AppendLine($"    storel {result}, %{outputLabel}");
+                return $"%{outputLabel}";
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.I32 }:
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.U32 }:
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.I16 }:
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.U16 }:
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.I8 }:
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.U8 }:
+            case NubPrimitiveType { Kind: PrimitiveTypeKind.F32 }:
+                _builder.AppendLine($"    %{outputLabel} =l alloc8 4");
+                _builder.AppendLine($"    storew {result}, %{outputLabel}");
+                return $"%{outputLabel}";
             default:
-                throw new ArgumentOutOfRangeException(nameof(expression));
+                throw new ArgumentOutOfRangeException();
         }
     }
 
@@ -1313,37 +1343,6 @@ public class Generator
                 }
 
                 break;
-            }
-            case UnaryExpressionOperator.AddressOf:
-            {
-                switch (unaryExpression.Operand.Type)
-                {
-                    case NubPointerType:
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.String }:
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.I64 }:
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.F64 }:
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.U64 }:
-                        _builder.AppendLine($"    %{outputLabel} =l alloc8 8");
-                        _builder.AppendLine($"    storel {operand}, %{outputLabel}");
-                        return $"%{outputLabel}";
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.I32 }:
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.U32 }:
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.I16 }:
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.U16 }:
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.I8 }:
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.U8 }:
-                    case NubPrimitiveType { Kind: PrimitiveTypeKind.F32 }:
-                        _builder.AppendLine($"    %{outputLabel} =l alloc8 4");
-                        _builder.AppendLine($"    storew {operand}, %{outputLabel}");
-                        return $"%{outputLabel}";
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-            case UnaryExpressionOperator.Dereference:
-            {
-                _builder.AppendLine($"    %{outputLabel} ={SQT(unaryExpression.Type)} load{SQT(unaryExpression.Type)} {operand}");
-                return $"%{outputLabel}";
             }
             default:
             {

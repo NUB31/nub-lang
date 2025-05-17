@@ -362,7 +362,7 @@ public class Parser
                     case Symbol.Ampersand:
                     {
                         var expression = ParsePrimaryExpression();
-                        return new UnaryExpressionNode(UnaryExpressionOperator.AddressOf, expression);
+                        return new AddressOfNode(expression);
                     }
                     case Symbol.Minus:
                     {
@@ -408,10 +408,6 @@ public class Parser
                         {
                             var field = ExpectIdentifier();
                             result = new StructFieldAccessorNode(result, field.Value);
-                            if (TryExpectSymbol(Symbol.Caret))
-                            {
-                                result = new UnaryExpressionNode(UnaryExpressionOperator.Dereference, result);
-                            }
                         } while (TryExpectSymbol(Symbol.Period));
 
                         return result;
@@ -432,11 +428,6 @@ public class Parser
 
                 break;
             }
-        }
-
-        if (TryExpectSymbol(Symbol.Caret))
-        {
-            return new UnaryExpressionNode(UnaryExpressionOperator.Dereference, new IdentifierNode(identifier.Value));
         }
 
         return new IdentifierNode(identifier.Value);

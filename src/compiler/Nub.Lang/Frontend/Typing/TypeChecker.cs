@@ -130,6 +130,17 @@ public class TypeChecker
         }
     }
 
+    private NubType TypeCheckDereference(DereferenceNode dereference)
+    {
+        TypeCheckExpression(dereference.Expression);
+        if (dereference.Expression.Type is not NubPointerType nubPointerType)
+        {
+            throw new TypeCheckingException($"Cannot dereference a non-pointer type {dereference.Expression.Type}");
+        }
+
+        return nubPointerType.BaseType;
+    }
+
     private NubType TypeCheckFuncCall(FuncCall funcCall)
     {
         var localFuncDef = _definitions.OfType<LocalFuncDefinitionNode>().FirstOrDefault(f => f.Name == funcCall.Name);
@@ -239,45 +250,44 @@ public class TypeChecker
 
     private NubType TypeCheckExpression(ExpressionNode expression)
     {
-        NubType resultType;
-
-        switch (expression)
+        var resultType = expression switch
         {
-            case LiteralNode literal:
-                resultType = literal.LiteralType;
-                break;
-            case IdentifierNode identifier:
-                if (!_variables.TryGetValue(identifier.Identifier, out var varType))
-                {
-                    throw new TypeCheckingException($"Variable '{identifier.Identifier}' is not defined");
-                }
-
-                resultType = varType;
-                break;
-            case BinaryExpressionNode binaryExpr:
-                resultType = TypeCheckBinaryExpression(binaryExpr);
-                break;
-            case CastNode cast:
-                resultType = TypeCheckCast(cast);
-                break;
-            case FuncCallExpressionNode funcCallExpr:
-                resultType = TypeCheckFuncCall(funcCallExpr.FuncCall);
-                break;
-            case StructInitializerNode structInit:
-                resultType = TypeCheckStructInitializer(structInit);
-                break;
-            case UnaryExpressionNode unaryExpression:
-                resultType = TypeCheckUnaryExpression(unaryExpression);
-                break;
-            case StructFieldAccessorNode fieldAccess:
-                resultType = TypeCheckStructFieldAccess(fieldAccess);
-                break;
-            default:
-                throw new TypeCheckingException($"Unsupported expression type: {expression.GetType().Name}");
-        }
+            AddressOfNode addressOf => TypeCheckAddressOf(addressOf),
+            LiteralNode literal => literal.LiteralType,
+            IdentifierNode identifier => TypeCheckIdentifier(identifier),
+            BinaryExpressionNode binaryExpr => TypeCheckBinaryExpression(binaryExpr),
+            CastNode cast => TypeCheckCast(cast),
+            DereferenceNode dereference => TypeCheckDereference(dereference),
+            FuncCallExpressionNode funcCallExpr => TypeCheckFuncCall(funcCallExpr.FuncCall),
+            StructInitializerNode structInit => TypeCheckStructInitializer(structInit),
+            UnaryExpressionNode unaryExpression => TypeCheckUnaryExpression(unaryExpression),
+            StructFieldAccessorNode fieldAccess => TypeCheckStructFieldAccess(fieldAccess),
+            _ => throw new TypeCheckingException($"Unsupported expression type: {expression.GetType().Name}")
+        };
 
         expression.Type = resultType;
         return resultType;
+    }
+
+    private NubType TypeCheckIdentifier(IdentifierNode identifier)
+    {
+        if (!_variables.TryGetValue(identifier.Identifier, out var varType))
+        {
+            throw new TypeCheckingException($"Variable '{identifier.Identifier}' is not defined");
+        }
+
+        return varType;
+    }
+
+    private NubType TypeCheckAddressOf(AddressOfNode addressOf)
+    {
+        TypeCheckExpression(addressOf.Expression);
+        if (addressOf.Expression is not (IdentifierNode or StructFieldAccessorNode))
+        {
+            throw new TypeCheckingException($"Cannot take the address of {addressOf.Expression.Type}");
+        }
+
+        return new NubPointerType(addressOf.Expression.Type);
     }
 
     private NubType TypeCheckBinaryExpression(BinaryExpressionNode binaryExpr)
@@ -382,24 +392,6 @@ public class TypeChecker
 
         switch (unaryExpression.Operator)
         {
-            case UnaryExpressionOperator.AddressOf:
-            {
-                if (unaryExpression.Operand is not (IdentifierNode or StructFieldAccessorNode))
-                {
-                    throw new TypeCheckingException($"Cannot take the address of {unaryExpression.Operand.GetType().Name}");
-                }
-
-                return new NubPointerType(operandType);
-            }
-            case UnaryExpressionOperator.Dereference:
-            {
-                if (operandType is not NubPointerType nubPointerType)
-                {
-                    throw new TypeCheckingException($"Cannot dereference a non-pointer type {operandType}");
-                }
-
-                return nubPointerType.BaseType;
-            }
             case UnaryExpressionOperator.Negate:
             {
                 if (operandType.Equals(NubPrimitiveType.I8) ||

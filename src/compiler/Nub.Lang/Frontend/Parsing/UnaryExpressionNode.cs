@@ -8,8 +8,6 @@ public class UnaryExpressionNode(UnaryExpressionOperator @operator, ExpressionNo
 
 public enum UnaryExpressionOperator
 {
-    AddressOf,
-    Dereference,
     Negate,
     Invert
 }
