@@ -19,5 +19,5 @@ global func main(argc: i64, argv: i64) {
         parent = &parent
     }
 
-    printf("%s\n", test.parent^.name^)
+    printf("%s\n", (&test)^.parent^.name^)
 }

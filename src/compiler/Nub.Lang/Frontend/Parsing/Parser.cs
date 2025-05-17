@@ -308,11 +308,14 @@ public class Parser
     private ExpressionNode ParsePrimaryExpression()
     {
         var token = ExpectToken();
+        ExpressionNode expr;
+        
         switch (token)
         {
             case LiteralToken literal:
             {
-                return new LiteralNode(literal.Value, literal.Type);
+                expr = new LiteralNode(literal.Value, literal.Type);
+                break;
             }
             case IdentifierToken identifier:
             {
@@ -329,29 +332,16 @@ public class Parser
                             TryExpectSymbol(Symbol.Comma);
                         }
 
-                        return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
-                    }
-                    case SymbolToken { Symbol: Symbol.Period }:
-                    {
-                        Next();
-                        ExpressionNode expression = new IdentifierNode(identifier.Value);
-                        do
-                        {
-                            var structMember = ExpectIdentifier().Value;
-                            expression = new StructFieldAccessorNode(expression, structMember);
-                            if (TryExpectSymbol(Symbol.Caret))
-                            {
-                                expression = new DereferenceNode(expression);
-                            }
-                        } while (TryExpectSymbol(Symbol.Period));
-
-                        return expression;
+                        expr = new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
+                        break;
                     }
                     default:
                     {
-                        return new IdentifierNode(identifier.Value);
+                        expr = new IdentifierNode(identifier.Value);
+                        break;
                     }
                 }
+                break;
             }
             case SymbolToken symbolToken:
             {
@@ -369,7 +359,8 @@ public class Parser
                             if (TryExpectSymbol(Symbol.CloseParen))
                             {
                                 var expressionToCast = ParseExpression();
-                                return new CastNode(type, expressionToCast);
+                                expr = new CastNode(type, expressionToCast);
+                                break;
                             }
 
                             _index = startIndex;
@@ -377,7 +368,8 @@ public class Parser
 
                         var expression = ParseExpression();
                         ExpectSymbol(Symbol.CloseParen);
-                        return expression;
+                        expr = expression;
+                        break;
                     }
                     case Symbol.New:
                     {
@@ -392,34 +384,64 @@ public class Parser
                             initializers.Add(name, value);
                         }
 
-                        return new StructInitializerNode(type, initializers);
+                        expr = new StructInitializerNode(type, initializers);
+                        break;
                     }
                     case Symbol.Ampersand:
                     {
                         var expression = ParsePrimaryExpression();
-                        return new AddressOfNode(expression);
+                        expr = new AddressOfNode(expression);
+                        break;
                     }
                     case Symbol.Minus:
                     {
                         var expression = ParsePrimaryExpression();
-                        return new UnaryExpressionNode(UnaryExpressionOperator.Negate, expression);
+                        expr = new UnaryExpressionNode(UnaryExpressionOperator.Negate, expression);
+                        break;
                     }
                     case Symbol.Bang:
                     {
                         var expression = ParsePrimaryExpression();
-                        return new UnaryExpressionNode(UnaryExpressionOperator.Invert, expression);
+                        expr = new UnaryExpressionNode(UnaryExpressionOperator.Invert, expression);
+                        break;
                     }
                     default:
                     {
                         throw new Exception($"Unknown symbol: {symbolToken.Symbol}");
                     }
                 }
+                break;
             }
             default:
             {
                 throw new Exception($"Unexpected token type {token.GetType().Name}");
             }
         }
+
+        return ParsePostfixOperators(expr);
+    }
+
+    private ExpressionNode ParsePostfixOperators(ExpressionNode expr)
+    {
+        while (true)
+        {
+            if (TryExpectSymbol(Symbol.Caret))
+            {
+                expr = new DereferenceNode(expr);
+                continue;
+            }
+
+            if (TryExpectSymbol(Symbol.Period))
+            {
+                var structMember = ExpectIdentifier().Value;
+                expr = new StructFieldAccessorNode(expr, structMember);
+                continue;
+            }
+
+            break;
+        }
+
+        return expr;
     }
 
     private BlockNode ParseBlock()
