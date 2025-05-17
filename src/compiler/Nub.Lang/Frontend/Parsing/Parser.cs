@@ -307,9 +307,9 @@ public class Parser
 
     private ExpressionNode ParsePrimaryExpression()
     {
-        var token = ExpectToken();
         ExpressionNode expr;
         
+        var token = ExpectToken();
         switch (token)
         {
             case LiteralToken literal:
@@ -349,26 +349,19 @@ public class Parser
                 {
                     case Symbol.OpenParen:
                     {
-                        // This is ugly
-                        var nextToken = Peek();
-                        if (nextToken is { Value: IdentifierToken or SymbolToken { Symbol: Symbol.Caret } })
-                        {
-                            var startIndex = _index;
-                            var type = ParseType();
-
-                            if (TryExpectSymbol(Symbol.CloseParen))
-                            {
-                                var expressionToCast = ParseExpression();
-                                expr = new CastNode(type, expressionToCast);
-                                break;
-                            }
-
-                            _index = startIndex;
-                        }
-
                         var expression = ParseExpression();
                         ExpectSymbol(Symbol.CloseParen);
                         expr = expression;
+                        break;
+                    }
+                    case Symbol.LessThan:
+                    {
+                        var type = ParseType();
+                        ExpectSymbol(Symbol.GreaterThan);
+                        ExpectSymbol(Symbol.OpenParen);
+                        var expressionToCast = ParseExpression();
+                        ExpectSymbol(Symbol.CloseParen);
+                        expr = new CastNode(type, expressionToCast);
                         break;
                     }
                     case Symbol.New:
@@ -437,6 +430,14 @@ public class Parser
                 expr = new StructFieldAccessorNode(expr, structMember);
                 continue;
             }
+
+            // if (TryExpectSymbol(Symbol.OpenBracket))
+            // {
+            //     var index = ParseExpression();
+            //     ExpectSymbol(Symbol.CloseBracket);
+            //     expr = new ArrayIndexNode(expr, index);
+            //     continue;
+            // }
 
             break;
         }
