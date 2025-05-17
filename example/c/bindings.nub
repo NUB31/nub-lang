@@ -1,2 +1,31 @@
-extern func puts(str: string)
 extern func printf(fmt: string, ...args: any)
+extern func getchar(): i32
+extern func puts(str: string)
+extern func putchar(c: i32): i32
+extern func fgets(str: ^u8, size: i32, stream: ^any): ^u8
+extern func fputs(str: ^u8, stream: ^any): i32
+extern func fopen(filename: ^u8, mode: ^u8): ^any
+extern func fclose(stream: ^any): i32
+
+extern func malloc(size: i64): ^any
+extern func calloc(num: i64, size: i64): ^any
+extern func realloc(ptr: ^any, size: i64): ^any
+extern func free(ptr: ^any)
+
+extern func strlen(str: ^u8): i64
+extern func strcpy(dest: ^u8, src: ^u8): ^u8
+extern func strncpy(dest: ^u8, src: ^u8, n: i64): ^u8
+extern func strcat(dest: ^u8, src: ^u8): ^u8
+extern func strcmp(s1: ^u8, s2: ^u8): i32
+extern func strstr(haystack: ^u8, needle: ^u8): ^u8
+
+extern func sin(x: f64): f64
+extern func cos(x: f64): f64
+extern func tan(x: f64): f64
+extern func sqrt(x: f64): f64
+extern func pow(x: f64, y: f64): f64
+extern func abs(x: i32): i32
+
+extern func time(t: ^i64): i64
+extern func clock(): i64
+extern func sleep(seconds: u32): i32

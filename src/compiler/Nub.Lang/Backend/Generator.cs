@@ -301,7 +301,7 @@ public class Generator
 
         GenerateBlock(node.Body);
 
-        if (node.Body.Statements.Last() is not ReturnNode)
+        if (node.Body.Statements.LastOrDefault() is not ReturnNode)
         {
             if (!node.ReturnType.HasValue && node.Name == "main")
             {
