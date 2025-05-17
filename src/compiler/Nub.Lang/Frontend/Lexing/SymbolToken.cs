@@ -39,5 +39,7 @@ public enum Symbol
     Star,
     ForwardSlash,
     New,
-    Struct
+    Struct,
+    Caret,
+    Ampersand
 }

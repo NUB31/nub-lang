@@ -50,6 +50,8 @@ public class Lexer
         ['*'] = Symbol.Star,
         ['/'] = Symbol.ForwardSlash,
         ['!'] = Symbol.Bang,
+        ['^'] = Symbol.Caret,
+        ['&'] = Symbol.Ampersand,
     };
     
     private string _src = string.Empty;

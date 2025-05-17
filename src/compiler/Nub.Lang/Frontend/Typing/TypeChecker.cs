@@ -10,44 +10,29 @@ public class TypeCheckingException : Exception
 public class TypeChecker
 {
     private readonly Dictionary<string, NubType> _variables = new();
-    private readonly Dictionary<string, (List<FuncParameter> Parameters, Optional<NubType> ReturnType)> _functions = new();
-    private readonly Dictionary<string, Dictionary<string, NubType>> _structs = new();
+    private readonly List<DefinitionNode> _definitions;
     private NubType? _currentFunctionReturnType;
     private bool _hasReturnStatement;
 
-    public void TypeCheck(List<DefinitionNode> definitions)
+    public TypeChecker(List<DefinitionNode> definitions)
     {
-        CollectDefinitions(definitions);
+        _definitions = definitions;
+    }
 
-        foreach (var definition in definitions)
+    public void TypeCheck()
+    {
+        foreach (var structDef in _definitions.OfType<StructDefinitionNode>())
         {
-            if (definition is LocalFuncDefinitionNode funcDef)
-            {
-                TypeCheckFunction(funcDef);
-            }
+            TypeCheckStructDef(structDef);
+        }
+   
+        foreach (var funcDef in _definitions.OfType<LocalFuncDefinitionNode>())
+        {
+            TypeCheckFuncDef(funcDef);
         }
     }
 
-    private void CollectDefinitions(List<DefinitionNode> definitions)
-    {
-        foreach (var definition in definitions)
-        {
-            switch (definition)
-            {
-                case StructDefinitionNode structDef:
-                    RegisterStruct(structDef);
-                    break;
-                case LocalFuncDefinitionNode funcDef:
-                    RegisterFunction(funcDef);
-                    break;
-                case ExternFuncDefinitionNode externFuncDef:
-                    RegisterExternFunction(externFuncDef);
-                    break;
-            }
-        }
-    }
-
-    private void RegisterStruct(StructDefinitionNode structDef)
+    private void TypeCheckStructDef(StructDefinitionNode structDef)
     {
         var fields = new Dictionary<string, NubType>();
         foreach (var field in structDef.Fields)
@@ -56,22 +41,20 @@ public class TypeChecker
             {
                 throw new TypeCheckingException($"Duplicate field '{field.Name}' in struct '{structDef.Name}'");
             }
+
+            if (field.Value.HasValue)
+            {
+                if (!TypeCheckExpression(field.Value.Value).Equals(field.Type))
+                {
+                    throw new TypeCheckingException("Default field initializer does not match the defined type");
+                }
+            }
+            
             fields[field.Name] = field.Type;
         }
-        _structs[structDef.Name] = fields;
     }
 
-    private void RegisterFunction(LocalFuncDefinitionNode funcDef)
-    {
-        _functions[funcDef.Name] = (funcDef.Parameters, funcDef.ReturnType);
-    }
-
-    private void RegisterExternFunction(ExternFuncDefinitionNode funcDef)
-    {
-        _functions[funcDef.Name] = (funcDef.Parameters, funcDef.ReturnType);
-    }
-
-    private void TypeCheckFunction(LocalFuncDefinitionNode funcDef)
+    private void TypeCheckFuncDef(LocalFuncDefinitionNode funcDef)
     {
         _variables.Clear();
         _currentFunctionReturnType = funcDef.ReturnType.HasValue ? funcDef.ReturnType.Value : null;
@@ -146,13 +129,28 @@ public class TypeChecker
 
     private NubType TypeCheckFuncCall(FuncCall funcCall)
     {
-        if (!_functions.TryGetValue(funcCall.Name, out var funcSignature))
+        var localFuncDef = _definitions.OfType<LocalFuncDefinitionNode>().FirstOrDefault(f => f.Name == funcCall.Name);
+        var externFuncDef = _definitions.OfType<ExternFuncDefinitionNode>().FirstOrDefault(f => f.Name == funcCall.Name);
+
+        List<FuncParameter> parameters;
+        Optional<NubType> returnType;
+        if (localFuncDef != null)
+        {
+            parameters = localFuncDef.Parameters;
+            returnType = localFuncDef.ReturnType;
+        }
+        else if (externFuncDef != null)
+        {
+            parameters = externFuncDef.Parameters;
+            returnType = externFuncDef.ReturnType;
+        }
+        
+        else
         {
             throw new TypeCheckingException($"Function '{funcCall.Name}' is not defined");
         }
 
-        var paramTypes = funcSignature.Parameters;
-        if (paramTypes.Take(paramTypes.Count - 1).Any(x => x.Variadic))
+        if (parameters.Take(parameters.Count - 1).Any(x => x.Variadic))
         {
             throw new TypeCheckingException($"Function '{funcCall.Name}' has multiple variadic parameters");
         }
@@ -162,13 +160,13 @@ public class TypeChecker
             var argType = TypeCheckExpression(funcCall.Parameters[i]);
 
             NubType paramType;
-            if (i < paramTypes.Count)
+            if (i < parameters.Count)
             {
-                paramType = paramTypes[i].Type;
+                paramType = parameters[i].Type;
             }
-            else if (paramTypes.LastOrDefault()?.Variadic ?? false)
+            else if (parameters.LastOrDefault()?.Variadic ?? false)
             {
-                return paramTypes[^1].Type;
+                return parameters[^1].Type;
             }
             else
             {
@@ -181,7 +179,7 @@ public class TypeChecker
             }
         }
 
-        return funcSignature.ReturnType.HasValue ? funcSignature.ReturnType.Value : NubPrimitiveType.Any;
+        return returnType.HasValue ? returnType.Value : NubPrimitiveType.Any;
     }
 
     private void TypeCheckIf(IfNode ifNode)
@@ -322,36 +320,47 @@ public class TypeChecker
 
     private NubType TypeCheckStructInitializer(StructInitializerNode structInit)
     {
+        var initialized = new HashSet<string>();
+        
         var structType = structInit.StructType;
-        if (structType is not NubCustomType customType)
+        if (structType is not NubStructType customType)
         {
             throw new TypeCheckingException($"Type '{structType}' is not a struct type");
         }
 
-        if (!_structs.TryGetValue(customType.Name, out var fields))
+        var definition = _definitions.OfType<StructDefinitionNode>().FirstOrDefault(s => s.Name == structInit.StructType.Name);
+        if (definition == null)
         {
             throw new TypeCheckingException($"Struct type '{customType.Name}' is not defined");
         }
 
         foreach (var initializer in structInit.Initializers)
         {
-            if (!fields.TryGetValue(initializer.Key, out var fieldType))
+            var definitionField = definition.Fields.FirstOrDefault(f => f.Name == initializer.Key);
+            if (definitionField == null)
             {
                 throw new TypeCheckingException($"Field '{initializer.Key}' does not exist in struct '{customType.Name}'");
             }
 
             var initializerType = TypeCheckExpression(initializer.Value);
-            if (!AreTypesCompatible(initializerType, fieldType))
+            if (!AreTypesCompatible(initializerType, definitionField.Type))
             {
-                throw new TypeCheckingException($"Cannot initialize field '{initializer.Key}' of type '{fieldType}' with expression of type '{initializerType}'");
+                throw new TypeCheckingException($"Cannot initialize field '{initializer.Key}' of type '{definitionField.Type}' with expression of type '{initializerType}'");
             }
+            
+            initialized.Add(initializer.Key);
+        }
+        
+        foreach (var field in definition.Fields.Where(f => f.Value.HasValue))
+        {
+            initialized.Add(field.Name);
         }
 
-        foreach (var field in fields)
+        foreach (var field in definition.Fields)
         {
-            if (!structInit.Initializers.ContainsKey(field.Key))
+            if (!initialized.Contains(field.Name))
             {
-                throw new TypeCheckingException($"Field '{field.Key}' of struct '{customType.Name}' is not initialized");
+                throw new TypeCheckingException($"Struct field '{field.Name}' is not initialized on type '{customType.Name}'");
             }
         }
 
@@ -361,23 +370,24 @@ public class TypeChecker
     private NubType TypeCheckStructFieldAccess(StructFieldAccessorNode fieldAccess)
     {
         var structType = TypeCheckExpression(fieldAccess.Struct);
-            
-        if (structType is not NubCustomType customType)
+        if (structType is not NubStructType customType)
         {
             throw new TypeCheckingException($"Cannot access field '{fieldAccess.Field}' on non-struct type '{structType}'");
         }
 
-        if (!_structs.TryGetValue(customType.Name, out var fields))
+        var definition = _definitions.OfType<StructDefinitionNode>().FirstOrDefault(s => s.Name == customType.Name);
+        if (definition == null)
         {
             throw new TypeCheckingException($"Struct type '{customType.Name}' is not defined");
         }
 
-        if (!fields.TryGetValue(fieldAccess.Field, out var fieldType))
+        var field = definition.Fields.FirstOrDefault(f => f.Name == fieldAccess.Field);
+        if (field == null)
         {
             throw new TypeCheckingException($"Field '{fieldAccess.Field}' does not exist in struct '{customType.Name}'");
         }
 
-        return fieldType;
+        return field.Type;
     }
 
     private static bool AreTypesCompatible(NubType sourceType, NubType targetType)

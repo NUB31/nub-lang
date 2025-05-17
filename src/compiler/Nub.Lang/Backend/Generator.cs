@@ -8,11 +8,11 @@ public class Generator
 {
     private readonly List<DefinitionNode> _definitions;
     private readonly StringBuilder _builder = new();
-    private readonly Dictionary<string, int> _prefixIndexes = new();
     private readonly Dictionary<string, Variable> _variables = new();
     private readonly List<string> _strings = [];
     private readonly Stack<string> _breakLabels = new();
     private readonly Stack<string> _continueLabels = new();
+    private int _variableIndex;
     private bool _codeIsReachable = true;
 
     public Generator(List<DefinitionNode> definitions)
@@ -72,7 +72,7 @@ public class Generator
                         throw new ArgumentOutOfRangeException();
                 }
             }
-            case NubCustomType nubCustomType:
+            case NubStructType:
             {
                 return "l";
             }
@@ -114,7 +114,7 @@ public class Generator
                         throw new ArgumentOutOfRangeException();
                 }
             }
-            case NubCustomType nubCustomType:
+            case NubStructType nubCustomType:
             {
                 return ":" + nubCustomType.Name;
             }
@@ -159,7 +159,7 @@ public class Generator
                         throw new ArgumentOutOfRangeException();
                 }
             }
-            case NubCustomType nubCustomType:
+            case NubStructType nubCustomType:
             {
                 return ":" + nubCustomType.Name;
             }
@@ -170,7 +170,7 @@ public class Generator
         }
     }
 
-    private static int QbeTypeSize(NubType type)
+    private int QbeTypeSize(NubType type)
     {
         switch (type)
         {
@@ -201,9 +201,14 @@ public class Generator
                         throw new ArgumentOutOfRangeException();
                 }
             }
-            case NubCustomType nubCustomType:
+            case NubStructType nubCustomType:
             {
-                return 8;
+                var definition = _definitions.OfType<StructDefinitionNode>().FirstOrDefault(s => s.Name == nubCustomType.Name);
+                if (definition == null)
+                {
+                    throw new Exception($"Cannot determine size of non-existent type {nubCustomType}");
+                }
+                return definition.Fields.Sum(f => QbeTypeSize(f.Type));
             }
             default:
             {
@@ -246,19 +251,19 @@ public class Generator
             switch (FQT(parameter.Type))
             {
                 case "sb":
-                    parameterName = GenName("c");
+                    parameterName = GenName();
                     _builder.AppendLine($"    %{parameterName} =w extsb %{parameter.Name}");
                     break;
                 case "ub":
-                    parameterName = GenName("c");
+                    parameterName = GenName();
                     _builder.AppendLine($"    %{parameterName} =w extub %{parameter.Name}");
                     break;
                 case "sh":
-                    parameterName = GenName("c");
+                    parameterName = GenName();
                     _builder.AppendLine($"    %{parameterName} =w extsh %{parameter.Name}");
                     break;
                 case "uh":
-                    parameterName = GenName("c");
+                    parameterName = GenName();
                     _builder.AppendLine($"    %{parameterName} =w extuh %{parameter.Name}");
                     break;
             }
@@ -403,9 +408,9 @@ public class Generator
 
     private void GenerateIf(IfNode ifStatement)
     {
-        var trueLabel = GenName("true");
-        var falseLabel = GenName("false");
-        var endLabel = GenName("endif");
+        var trueLabel = GenName();
+        var falseLabel = GenName();
+        var endLabel = GenName();
 
         var result = GenerateExpression(ifStatement.Condition);
         _builder.AppendLine($"    jnz {result}, @{trueLabel}, @{falseLabel}");
@@ -450,9 +455,9 @@ public class Generator
 
     private void GenerateWhile(WhileNode whileStatement)
     {
-        var conditionLabel = GenName("condition");
-        var iterationLabel = GenName("iteration");
-        var endLabel = GenName("endloop");
+        var conditionLabel = GenName();
+        var iterationLabel = GenName();
+        var endLabel = GenName();
 
         _breakLabels.Push(endLabel);
         _continueLabels.Push(conditionLabel);
@@ -734,7 +739,7 @@ public class Generator
             throw new NotSupportedException("Casting is only supported for primitive types");
         }
 
-        var outputLabel = GenName("c");
+        var outputLabel = GenName();
 
         switch (primitiveInputType.Kind)
         {
@@ -779,7 +784,7 @@ public class Generator
                     case PrimitiveTypeKind.U8:
                         return input;
                     case PrimitiveTypeKind.F64:
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =l extsw {input}");
                         _builder.AppendLine($"    %{outputLabel} =d sltof %{extLabel}");
                         return $"%{outputLabel}";
@@ -790,7 +795,7 @@ public class Generator
                         _builder.AppendLine($"    %{outputLabel} =l call $nub_i32_to_string(w {input})");
                         return $"%{outputLabel}";
                     case PrimitiveTypeKind.Any:
-                        var extAnyLabel = GenName("ext");
+                        var extAnyLabel = GenName();
                         _builder.AppendLine($"    %{extAnyLabel} =l extsw {input}");
                         return $"%{extAnyLabel}";
                     case PrimitiveTypeKind.Bool:
@@ -815,28 +820,28 @@ public class Generator
                         return input;
                     case PrimitiveTypeKind.F64:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =l extsh {input}");
                         _builder.AppendLine($"    %{outputLabel} =d sltof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.F32:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =w extsh {input}");
                         _builder.AppendLine($"    %{outputLabel} =s swtof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.String:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =w extsh {input}");
                         _builder.AppendLine($"    %{outputLabel} =l call $nub_i32_to_string(w %{extLabel})");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.Any:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =l extsh {input}");
                         return $"%{extLabel}";
                     }
@@ -862,28 +867,28 @@ public class Generator
                         return input;
                     case PrimitiveTypeKind.F64:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =l extsb {input}");
                         _builder.AppendLine($"    %{outputLabel} =d sltof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.F32:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =w extsb {input}");
                         _builder.AppendLine($"    %{outputLabel} =s swtof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.String:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =w extsb {input}");
                         _builder.AppendLine($"    %{outputLabel} =l call $nub_i32_to_string(w %{extLabel})");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.Any:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =l extsb {input}");
                         return $"%{extLabel}";
                     }
@@ -933,7 +938,7 @@ public class Generator
                     case PrimitiveTypeKind.U8:
                         return input;
                     case PrimitiveTypeKind.F64:
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =l extuw {input}");
                         _builder.AppendLine($"    %{outputLabel} =d ultof %{extLabel}");
                         return $"%{outputLabel}";
@@ -944,7 +949,7 @@ public class Generator
                         _builder.AppendLine($"    %{outputLabel} =l call $nub_u32_to_string(w {input})");
                         return $"%{outputLabel}";
                     case PrimitiveTypeKind.Any:
-                        var extAnyLabel = GenName("ext");
+                        var extAnyLabel = GenName();
                         _builder.AppendLine($"    %{extAnyLabel} =l extuw {input}");
                         return $"%{extAnyLabel}";
                     case PrimitiveTypeKind.Bool:
@@ -969,28 +974,28 @@ public class Generator
                         return input;
                     case PrimitiveTypeKind.F64:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =l extuh {input}");
                         _builder.AppendLine($"    %{outputLabel} =d ultof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.F32:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =w extuh {input}");
                         _builder.AppendLine($"    %{outputLabel} =s uwtof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.String:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =w extuh {input}");
                         _builder.AppendLine($"    %{outputLabel} =l call $nub_u32_to_string(w %{extLabel})");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.Any:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =l extuh {input}");
                         return $"%{extLabel}";
                     }
@@ -1016,28 +1021,28 @@ public class Generator
                         return input;
                     case PrimitiveTypeKind.F64:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =l extub {input}");
                         _builder.AppendLine($"    %{outputLabel} =d ultof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.F32:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =w extub {input}");
                         _builder.AppendLine($"    %{outputLabel} =s uwtof %{extLabel}");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.String:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =w extub {input}");
                         _builder.AppendLine($"    %{outputLabel} =l call $nub_u32_to_string(w %{extLabel})");
                         return $"%{outputLabel}";
                     }
                     case PrimitiveTypeKind.Any:
                     {
-                        var extLabel = GenName("ext");
+                        var extLabel = GenName();
                         _builder.AppendLine($"    %{extLabel} =l extub {input}");
                         return $"%{extLabel}";
                     }
@@ -1196,15 +1201,13 @@ public class Generator
 
     private string GenerateStructInitializer(StructInitializerNode structInitializer)
     {
-        var structDefinition = _definitions.OfType<StructDefinitionNode>()
-            .FirstOrDefault(s => s.Name == structInitializer.StructType.Name);
-
+        var structDefinition = _definitions.OfType<StructDefinitionNode>().FirstOrDefault(s => s.Name == structInitializer.StructType.Name);
         if (structDefinition == null)
         {
             throw new Exception($"Struct {structInitializer.StructType.Name} is not defined");
         }
 
-        var structVar = GenName("struct");
+        var structVar = GenName();
 
         var size = structDefinition.Fields.Sum(x => QbeTypeSize(x.Type));
         _builder.AppendLine($"    %{structVar} =l alloc8 {size}");
@@ -1216,14 +1219,14 @@ public class Generator
             if (structInitializer.Initializers.TryGetValue(field.Name, out var fieldValue))
             {
                 var var = GenerateExpression(fieldValue);
-                var offsetLabel = GenName("offset");
+                var offsetLabel = GenName();
                 _builder.AppendLine($"    %{offsetLabel} =l add %{structVar}, {i * QbeTypeSize(field.Type)}");
                 _builder.AppendLine($"    store{SQT(field.Type)} {var}, %{offsetLabel}");
             }
             else if (field.Value.HasValue)
             {
                 var var = GenerateExpression(field.Value.Value);
-                var offsetLabel = GenName("offset");
+                var offsetLabel = GenName();
                 _builder.AppendLine($"    %{offsetLabel} =l add %{structVar}, {i * QbeTypeSize(field.Type)}");
                 _builder.AppendLine($"    store{SQT(field.Type)} {var}, %{offsetLabel}");
             }
@@ -1265,10 +1268,10 @@ public class Generator
             throw new Exception($"Field {structFieldAccessor.Field} is not defined in struct {structType.Name}");
         }
 
-        var offsetLabel = GenName("offset");
+        var offsetLabel = GenName();
         _builder.AppendLine($"    %{offsetLabel} =l add {@struct}, {fieldIndex * QbeTypeSize(structFieldAccessor.Type)}");
 
-        var outputLabel = GenName("field");
+        var outputLabel = GenName();
         _builder.AppendLine($"    %{outputLabel} ={SQT(structFieldAccessor.Type)} load{SQT(structFieldAccessor.Type)} %{offsetLabel}");
 
         return $"%{outputLabel}";
@@ -1282,11 +1285,9 @@ public class Generator
         return $"%{outputLabel}";
     }
 
-    private string GenName(string prefix = "v")
+    private string GenName()
     {
-        var index = _prefixIndexes.GetValueOrDefault(prefix, 0);
-        _prefixIndexes[prefix] = index + 1;
-        return $"{prefix}{index}";
+        return $"v{++_variableIndex}";
     }
 
     private class Variable

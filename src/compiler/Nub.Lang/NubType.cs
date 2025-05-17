@@ -18,7 +18,7 @@ public abstract class NubType
             return new NubPrimitiveType(kind.Value);
         }
 
-        return new NubCustomType(s);
+        return new NubStructType(s);
     }
 
     public override bool Equals(object? obj) => obj is NubType item && Name.Equals(item.Name);
@@ -26,16 +26,11 @@ public abstract class NubType
     public override string ToString() => Name;
 }
 
-public class NubCustomType(string name) : NubType(name);
+public class NubStructType(string name) : NubType(name);
 
-public class NubPrimitiveType : NubType
+public class NubPrimitiveType(PrimitiveTypeKind kind) : NubType(KindToString(kind))
 {
-    public NubPrimitiveType(PrimitiveTypeKind kind) : base(KindToString(kind))
-    {
-        Kind = kind;
-    }
-
-    public PrimitiveTypeKind Kind { get; }
+    public PrimitiveTypeKind Kind { get; } = kind;
 
     public static NubPrimitiveType I64 => new(PrimitiveTypeKind.I64);
     public static NubPrimitiveType I32 => new(PrimitiveTypeKind.I32);
