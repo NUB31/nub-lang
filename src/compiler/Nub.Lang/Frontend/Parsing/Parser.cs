@@ -231,25 +231,6 @@ public class Parser
     {
         var left = ParsePrimaryExpression();
         
-        if (TryExpectSymbol(Symbol.Caret))
-        {
-            left = new DereferenceNode(left);
-        }
-
-        if (TryExpectSymbol(Symbol.Period))
-        {
-            do
-            {
-                var field = ExpectIdentifier();
-                left = new StructFieldAccessorNode(left, field.Value);
-            } while (TryExpectSymbol(Symbol.Period));
-        }
-        
-        if (TryExpectSymbol(Symbol.Caret))
-        {
-            left = new DereferenceNode(left);
-        }
-
         while (true)
         {
             var token = Peek();
@@ -335,7 +316,42 @@ public class Parser
             }
             case IdentifierToken identifier:
             {
-                return ParseExpressionIdentifier(identifier);
+                var next = Peek();
+                switch (next.Value)
+                {
+                    case SymbolToken { Symbol: Symbol.OpenParen }:
+                    {
+                        Next();
+                        List<ExpressionNode> parameters = [];
+                        while (!TryExpectSymbol(Symbol.CloseParen))
+                        {
+                            parameters.Add(ParseExpression());
+                            TryExpectSymbol(Symbol.Comma);
+                        }
+
+                        return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
+                    }
+                    case SymbolToken { Symbol: Symbol.Period }:
+                    {
+                        Next();
+                        ExpressionNode expression = new IdentifierNode(identifier.Value);
+                        do
+                        {
+                            var structMember = ExpectIdentifier().Value;
+                            expression = new StructFieldAccessorNode(expression, structMember);
+                            if (TryExpectSymbol(Symbol.Caret))
+                            {
+                                expression = new DereferenceNode(expression);
+                            }
+                        } while (TryExpectSymbol(Symbol.Period));
+
+                        return expression;
+                    }
+                    default:
+                    {
+                        return new IdentifierNode(identifier.Value);
+                    }
+                }
             }
             case SymbolToken symbolToken:
             {
@@ -352,7 +368,7 @@ public class Parser
 
                             if (TryExpectSymbol(Symbol.CloseParen))
                             {
-                                var expressionToCast = ParsePrimaryExpression();
+                                var expressionToCast = ParseExpression();
                                 return new CastNode(type, expressionToCast);
                             }
 
@@ -400,32 +416,10 @@ public class Parser
                 }
             }
             default:
-                throw new Exception($"Unexpected token type {token.GetType().Name}");
-        }
-    }
-
-    private ExpressionNode ParseExpressionIdentifier(IdentifierToken identifier)
-    {
-        var token = Peek();
-        if (!token.HasValue)
-        {
-            return new IdentifierNode(identifier.Value);
-        }
-
-        if (token.Value is SymbolToken { Symbol: Symbol.OpenParen })
-        {
-            Next();
-            List<ExpressionNode> parameters = [];
-            while (!TryExpectSymbol(Symbol.CloseParen))
             {
-                parameters.Add(ParseExpression());
-                TryExpectSymbol(Symbol.Comma);
+                throw new Exception($"Unexpected token type {token.GetType().Name}");
             }
-
-            return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
         }
-
-        return new IdentifierNode(identifier.Value);
     }
 
     private BlockNode ParseBlock()

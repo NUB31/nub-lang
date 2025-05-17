@@ -1,5 +1,23 @@
 import c
 
-global func main(argc: i64, argv: i64) {
+struct Test {
+    name: ^string
+}
 
+struct Test2 {
+    parent: ^Test
+}
+
+global func main(argc: i64, argv: i64) {
+    name = "Oliver"
+
+    parent = new Test {
+        name = &name
+    }
+
+    test = new Test2 {
+        parent = &parent
+    }
+
+    printf("%s\n", test.parent^.name^)
 }
