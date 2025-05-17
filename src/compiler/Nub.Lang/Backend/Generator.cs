@@ -73,6 +73,7 @@ public class Generator
                 }
             }
             case NubStructType:
+            case NubPointerType:
             {
                 return "l";
             }
@@ -117,6 +118,10 @@ public class Generator
             case NubStructType nubCustomType:
             {
                 return ":" + nubCustomType.Name;
+            }
+            case NubPointerType:
+            {
+                return "l";
             }
             default:
             {
@@ -163,6 +168,10 @@ public class Generator
             {
                 return ":" + nubCustomType.Name;
             }
+            case NubPointerType:
+            {
+                return "l";
+            }
             default:
             {
                 throw new NotImplementedException();
@@ -208,6 +217,7 @@ public class Generator
                 {
                     throw new Exception($"Cannot determine size of non-existent type {nubCustomType}");
                 }
+
                 return definition.Fields.Sum(f => QbeTypeSize(f.Type));
             }
             default:
@@ -490,6 +500,8 @@ public class Generator
                 return GenerateLiteral(literal);
             case StructInitializerNode structInitializer:
                 return GenerateStructInitializer(structInitializer);
+            case UnaryExpressionNode unaryExpression:
+                return GenerateUnaryExpression(unaryExpression);
             case StructFieldAccessorNode structMemberAccessor:
                 return GenerateStructFieldAccessor(structMemberAccessor);
             default:
@@ -1237,6 +1249,99 @@ public class Generator
         }
 
         return $"%{structVar}";
+    }
+
+    private string GenerateUnaryExpression(UnaryExpressionNode unaryExpression)
+    {
+        var operand = GenerateExpression(unaryExpression.Operand);
+        var outputLabel = GenName();
+
+        switch (unaryExpression.Operator)
+        {
+            case UnaryExpressionOperator.Negate:
+            {
+                switch (unaryExpression.Operand.Type)
+                {
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.I64 }:
+                        _builder.AppendLine($"    %{outputLabel} =l neg {operand}");
+                        return $"%{outputLabel}";
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.I32 or PrimitiveTypeKind.I16 or PrimitiveTypeKind.I8 }:
+                        _builder.AppendLine($"    %{outputLabel} =w neg {operand}");
+                        return $"%{outputLabel}";
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.F64 }:
+                        _builder.AppendLine($"    %{outputLabel} =d neg {operand}");
+                        return $"%{outputLabel}";
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.F32 }:
+                        _builder.AppendLine($"    %{outputLabel} =s neg {operand}");
+                        return $"%{outputLabel}";
+                }
+                
+                break;
+            }
+            case UnaryExpressionOperator.Invert:
+            {
+                switch (unaryExpression.Operand.Type)
+                {
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.Bool }:
+                        _builder.AppendLine($"    %{outputLabel} =w xor {operand}, 1");
+                        return $"%{outputLabel}";
+                }
+
+                break;
+            }
+            case UnaryExpressionOperator.AddressOf:
+            {
+                switch (unaryExpression.Operand.Type)
+                {
+                    case NubPointerType:
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.String }:
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.I64 }:
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.F64 }:
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.U64 }:
+                        _builder.AppendLine($"    %{outputLabel} =l alloc8 8");
+                        _builder.AppendLine($"    storel {operand}, %{outputLabel}");
+                        return $"%{outputLabel}";
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.I32 }:
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.U32 }:
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.I16 }:
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.U16 }:
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.I8 }:
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.U8 }:
+                    case NubPrimitiveType { Kind: PrimitiveTypeKind.F32 }:
+                        _builder.AppendLine($"    %{outputLabel} =l alloc8 4");
+                        _builder.AppendLine($"    storew {operand}, %{outputLabel}");
+                        return $"%{outputLabel}";
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            case UnaryExpressionOperator.Dereference:
+            {
+                // Handle dereference operator (assuming operand is a pointer)
+                // This would load the value from the address stored in the operand
+                if (unaryExpression.Type is NubPrimitiveType primitiveType)
+                {
+                    _builder.AppendLine($"    %{outputLabel} ={SQT(primitiveType)} load{SQT(primitiveType)} {operand}");
+                    return $"%{outputLabel}";
+                }
+
+                if (unaryExpression.Type is NubStructType structType)
+                {
+                    // For struct types, we'd need to handle differently
+                    // This is a simplified version
+                    _builder.AppendLine($"    %{outputLabel} =l copy {operand}");
+                    return $"%{outputLabel}";
+                }
+
+                break;
+            }
+            default:
+            {
+                throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        throw new NotSupportedException($"Unary operator {unaryExpression.Operator} for type {unaryExpression.Operand.Type} not supported");
     }
 
     private string GenerateStructFieldAccessor(StructFieldAccessorNode structFieldAccessor)

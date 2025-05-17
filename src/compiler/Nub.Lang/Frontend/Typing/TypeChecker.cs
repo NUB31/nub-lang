@@ -4,7 +4,9 @@ namespace Nub.Lang.Frontend.Typing;
 
 public class TypeCheckingException : Exception
 {
-    public TypeCheckingException(string message) : base(message) { }
+    public TypeCheckingException(string message) : base(message)
+    {
+    }
 }
 
 public class TypeChecker
@@ -25,7 +27,7 @@ public class TypeChecker
         {
             TypeCheckStructDef(structDef);
         }
-   
+
         foreach (var funcDef in _definitions.OfType<LocalFuncDefinitionNode>())
         {
             TypeCheckFuncDef(funcDef);
@@ -49,7 +51,7 @@ public class TypeChecker
                     throw new TypeCheckingException("Default field initializer does not match the defined type");
                 }
             }
-            
+
             fields[field.Name] = field.Type;
         }
     }
@@ -111,7 +113,7 @@ public class TypeChecker
     private void TypeCheckVariableAssignment(VariableAssignmentNode varAssign)
     {
         var valueType = TypeCheckExpression(varAssign.Value);
-            
+
         if (varAssign.ExplicitType.HasValue)
         {
             var explicitType = varAssign.ExplicitType.Value;
@@ -119,6 +121,7 @@ public class TypeChecker
             {
                 throw new TypeCheckingException($"Cannot assign expression of type '{valueType}' to variable '{varAssign.Name}' of type '{explicitType}'");
             }
+
             _variables[varAssign.Name] = explicitType;
         }
         else
@@ -144,7 +147,7 @@ public class TypeChecker
             parameters = externFuncDef.Parameters;
             returnType = externFuncDef.ReturnType;
         }
-        
+
         else
         {
             throw new TypeCheckingException($"Function '{funcCall.Name}' is not defined");
@@ -154,7 +157,7 @@ public class TypeChecker
         {
             throw new TypeCheckingException($"Function '{funcCall.Name}' has multiple variadic parameters");
         }
-        
+
         for (var i = 0; i < funcCall.Parameters.Count; i++)
         {
             var argType = TypeCheckExpression(funcCall.Parameters[i]);
@@ -172,7 +175,7 @@ public class TypeChecker
             {
                 throw new TypeCheckingException($"Function '{funcCall.Name}' does not take {funcCall.Parameters.Count} parameters");
             }
-                
+
             if (!AreTypesCompatible(argType, paramType))
             {
                 throw new TypeCheckingException($"Parameter {i} of function '{funcCall.Name}' expects type '{paramType}', but got '{argType}'");
@@ -217,12 +220,12 @@ public class TypeChecker
         if (returnNode.Value.HasValue)
         {
             var returnType = TypeCheckExpression(returnNode.Value.Value);
-                
+
             if (_currentFunctionReturnType == null)
             {
                 throw new TypeCheckingException("Cannot return a value from a function with no return type");
             }
-                
+
             if (!AreTypesCompatible(returnType, _currentFunctionReturnType))
             {
                 throw new TypeCheckingException($"Return value of type '{returnType}' is not compatible with function return type '{_currentFunctionReturnType}'");
@@ -248,6 +251,7 @@ public class TypeChecker
                 {
                     throw new TypeCheckingException($"Variable '{identifier.Identifier}' is not defined");
                 }
+
                 resultType = varType;
                 break;
             case BinaryExpressionNode binaryExpr:
@@ -261,6 +265,9 @@ public class TypeChecker
                 break;
             case StructInitializerNode structInit:
                 resultType = TypeCheckStructInitializer(structInit);
+                break;
+            case UnaryExpressionNode unaryExpression:
+                resultType = TypeCheckUnaryExpression(unaryExpression);
                 break;
             case StructFieldAccessorNode fieldAccess:
                 resultType = TypeCheckStructFieldAccess(fieldAccess);
@@ -296,6 +303,7 @@ public class TypeChecker
                 {
                     throw new TypeCheckingException($"Comparison operators require numeric operands, got '{leftType}' and '{rightType}'");
                 }
+
                 return NubPrimitiveType.Bool;
             case BinaryExpressionOperator.Plus:
             case BinaryExpressionOperator.Minus:
@@ -305,6 +313,7 @@ public class TypeChecker
                 {
                     throw new TypeCheckingException($"Arithmetic operators require numeric operands, got '{leftType}' and '{rightType}'");
                 }
+
                 return leftType;
             default:
                 throw new TypeCheckingException($"Unsupported binary operator: {binaryExpr.Operator}");
@@ -321,7 +330,7 @@ public class TypeChecker
     private NubType TypeCheckStructInitializer(StructInitializerNode structInit)
     {
         var initialized = new HashSet<string>();
-        
+
         var structType = structInit.StructType;
         if (structType is not NubStructType customType)
         {
@@ -347,10 +356,10 @@ public class TypeChecker
             {
                 throw new TypeCheckingException($"Cannot initialize field '{initializer.Key}' of type '{definitionField.Type}' with expression of type '{initializerType}'");
             }
-            
+
             initialized.Add(initializer.Key);
         }
-        
+
         foreach (var field in definition.Fields.Where(f => f.Value.HasValue))
         {
             initialized.Add(field.Name);
@@ -365,6 +374,60 @@ public class TypeChecker
         }
 
         return structType;
+    }
+
+    private NubType TypeCheckUnaryExpression(UnaryExpressionNode unaryExpression)
+    {
+        var operandType = TypeCheckExpression(unaryExpression.Operand);
+
+        switch (unaryExpression.Operator)
+        {
+            case UnaryExpressionOperator.AddressOf:
+            {
+                if (unaryExpression.Operand is not (IdentifierNode or StructFieldAccessorNode))
+                {
+                    throw new TypeCheckingException($"Cannot take the address of {unaryExpression.Operand.GetType().Name}");
+                }
+
+                return new NubPointerType(operandType);
+            }
+            case UnaryExpressionOperator.Dereference:
+            {
+                if (operandType is not NubPointerType nubPointerType)
+                {
+                    throw new TypeCheckingException($"Cannot dereference a non-pointer type {operandType}");
+                }
+
+                return nubPointerType.BaseType;
+            }
+            case UnaryExpressionOperator.Negate:
+            {
+                if (operandType.Equals(NubPrimitiveType.I8) ||
+                    operandType.Equals(NubPrimitiveType.I16) ||
+                    operandType.Equals(NubPrimitiveType.I32) ||
+                    operandType.Equals(NubPrimitiveType.I64) ||
+                    operandType.Equals(NubPrimitiveType.F32) ||
+                    operandType.Equals(NubPrimitiveType.F64))
+                {
+                    return operandType;
+                }
+
+                throw new TypeCheckingException($"Cannot negate non-numeric type {operandType}");
+            }
+            case UnaryExpressionOperator.Invert:
+            {
+                if (!operandType.Equals(NubPrimitiveType.Bool))
+                {
+                    throw new TypeCheckingException($"Cannot invert non-boolean type {operandType}");
+                }
+
+                return operandType;
+            }
+            default:
+            {
+                throw new ArgumentOutOfRangeException();
+            }
+        }
     }
 
     private NubType TypeCheckStructFieldAccess(StructFieldAccessorNode fieldAccess)

@@ -359,6 +359,26 @@ public class Parser
 
                         return new StructInitializerNode(type, initializers);
                     }
+                    case Symbol.Caret:
+                    {
+                        var expression = ParsePrimaryExpression();
+                        return new UnaryExpressionNode(UnaryExpressionOperator.Dereference, expression);
+                    }
+                    case Symbol.Ampersand:
+                    {
+                        var expression = ParsePrimaryExpression();
+                        return new UnaryExpressionNode(UnaryExpressionOperator.AddressOf, expression);
+                    }
+                    case Symbol.Minus:
+                    {
+                        var expression = ParsePrimaryExpression();
+                        return new UnaryExpressionNode(UnaryExpressionOperator.Negate, expression);
+                    }
+                    case Symbol.Bang:
+                    {
+                        var expression = ParsePrimaryExpression();
+                        return new UnaryExpressionNode(UnaryExpressionOperator.Invert, expression);
+                    }
                     default:
                     {
                         throw new Exception($"Unknown symbol: {symbolToken.Symbol}");

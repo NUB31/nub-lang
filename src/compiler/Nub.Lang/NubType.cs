@@ -28,6 +28,22 @@ public abstract class NubType
 
 public class NubStructType(string name) : NubType(name);
 
+public class NubPointerType(NubType baseType) : NubType("^" + baseType)
+{
+    public NubType BaseType { get; } = baseType;
+    
+    public override bool Equals(object? obj)
+    {
+        if (obj is NubPointerType other)
+        {
+            return BaseType.Equals(other.BaseType);
+        }
+        return false;
+    }
+
+    public override int GetHashCode() => BaseType.GetHashCode() * 31;
+}
+
 public class NubPrimitiveType(PrimitiveTypeKind kind) : NubType(KindToString(kind))
 {
     public PrimitiveTypeKind Kind { get; } = kind;
