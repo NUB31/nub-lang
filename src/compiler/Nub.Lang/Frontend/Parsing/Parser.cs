@@ -230,6 +230,25 @@ public class Parser
     private ExpressionNode ParseExpression(int precedence = 0)
     {
         var left = ParsePrimaryExpression();
+        
+        if (TryExpectSymbol(Symbol.Caret))
+        {
+            left = new DereferenceNode(left);
+        }
+
+        if (TryExpectSymbol(Symbol.Period))
+        {
+            do
+            {
+                var field = ExpectIdentifier();
+                left = new StructFieldAccessorNode(left, field.Value);
+            } while (TryExpectSymbol(Symbol.Period));
+        }
+        
+        if (TryExpectSymbol(Symbol.Caret))
+        {
+            left = new DereferenceNode(left);
+        }
 
         while (true)
         {
@@ -393,41 +412,17 @@ public class Parser
             return new IdentifierNode(identifier.Value);
         }
 
-        switch (token.Value)
+        if (token.Value is SymbolToken { Symbol: Symbol.OpenParen })
         {
-            case SymbolToken symbolToken:
+            Next();
+            List<ExpressionNode> parameters = [];
+            while (!TryExpectSymbol(Symbol.CloseParen))
             {
-                switch (symbolToken.Symbol)
-                {
-                    case Symbol.Period:
-                    {
-                        Next();
-                        ExpressionNode result = new IdentifierNode(identifier.Value);
-
-                        do
-                        {
-                            var field = ExpectIdentifier();
-                            result = new StructFieldAccessorNode(result, field.Value);
-                        } while (TryExpectSymbol(Symbol.Period));
-
-                        return result;
-                    }
-                    case Symbol.OpenParen:
-                    {
-                        Next();
-                        List<ExpressionNode> parameters = [];
-                        while (!TryExpectSymbol(Symbol.CloseParen))
-                        {
-                            parameters.Add(ParseExpression());
-                            TryExpectSymbol(Symbol.Comma);
-                        }
-
-                        return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
-                    }
-                }
-
-                break;
+                parameters.Add(ParseExpression());
+                TryExpectSymbol(Symbol.Comma);
             }
+
+            return new FuncCallExpressionNode(new FuncCall(identifier.Value, parameters));
         }
 
         return new IdentifierNode(identifier.Value);

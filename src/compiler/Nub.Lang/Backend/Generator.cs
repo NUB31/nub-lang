@@ -539,6 +539,7 @@ public class Generator
         switch (addressOf.Expression.Type)
         {
             case NubPointerType:
+            case NubStructType:
             case NubPrimitiveType { Kind: PrimitiveTypeKind.String }:
             case NubPrimitiveType { Kind: PrimitiveTypeKind.I64 }:
             case NubPrimitiveType { Kind: PrimitiveTypeKind.F64 }:

@@ -11,5 +11,5 @@ global func main(argc: i64, argv: i64) {
         text = &text
     }
 
-    printf("%s\n", x.text)
+    printf("%s\n", (&x)^.text^)
 }
